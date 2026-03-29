@@ -1,0 +1,37 @@
+/* Compact document list — no rounded corners, tight rows */
+.document-list {
+  background: transparent;
+}
+
+.document-list row {
+  border-radius: 0;
+  padding: 0;
+  min-height: 0;
+}
+
+.document-list row:not(:last-child) {
+  border-bottom: 1px solid alpha(currentColor, 0.08);
+}
+
+/* Bold title for unread documents */
+.bold-label {
+  font-weight: bold;
+}
+
+/* Sidebar styling */
+.sidebar {
+  background-color: alpha(currentColor, 0.03);
+  border-right: 1px solid alpha(currentColor, 0.1);
+  min-width: 48px;
+}
+
+/* Tag chips in sidebar */
+.tag-chip {
+  padding: 2px 8px;
+  border-radius: 99px;
+  background-color: alpha(@accent_color, 0.15);
+}
+
+.tag-chip label {
+  font-size: 0.8em;
+}

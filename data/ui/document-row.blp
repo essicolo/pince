@@ -1,0 +1,71 @@
+using Gtk 4.0;
+
+template $PinceDocumentRow: Gtk.Box {
+  orientation: horizontal;
+  spacing: 8;
+  margin-start: 8;
+  margin-end: 8;
+  margin-top: 4;
+  margin-bottom: 4;
+
+  Gtk.Image filetype_icon {
+    icon-name: "x-office-document-symbolic";
+    valign: center;
+
+    styles [
+      "dim-label",
+    ]
+  }
+
+  Gtk.Box {
+    orientation: vertical;
+    spacing: 2;
+    hexpand: true;
+    valign: center;
+
+    Gtk.Label title_label {
+      xalign: 0;
+      ellipsize: end;
+      single-line-mode: true;
+    }
+
+    Gtk.Label subtitle_label {
+      xalign: 0;
+      ellipsize: end;
+      single-line-mode: true;
+
+      styles [
+        "caption",
+        "dim-label",
+      ]
+    }
+  }
+
+  Gtk.Image reading_status_icon {
+    icon-name: "mail-unread-symbolic";
+    valign: center;
+    visible: false;
+
+    styles [
+      "dim-label",
+    ]
+  }
+
+  Gtk.Label year_label {
+    valign: center;
+
+    styles [
+      "caption",
+      "dim-label",
+    ]
+  }
+
+  Gtk.Image star_icon {
+    icon-name: "non-starred-symbolic";
+    valign: center;
+
+    styles [
+      "dim-label",
+    ]
+  }
+}

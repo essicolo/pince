@@ -1,0 +1,15 @@
+src/main.vala
+src/application.vala
+src/window.vala
+src/add-dialog.vala
+src/document-row.vala
+src/tag-row.vala
+src/preferences.vala
+src/crossref-client.vala
+data/ui/window.blp
+data/ui/add-dialog.blp
+data/ui/document-row.blp
+data/ui/preferences.blp
+data/io.github.essicolo.Pince.desktop
+data/io.github.essicolo.Pince.metainfo.xml
+data/io.github.essicolo.Pince.gschema.xml

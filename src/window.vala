@@ -1,0 +1,1551 @@
+namespace Pince {
+    [GtkTemplate (ui = "/io/github/essicolo/Pince/window.ui")]
+    public class Window : Adw.ApplicationWindow {
+        [GtkChild] unowned Gtk.Button add_button;
+        [GtkChild] unowned Gtk.ToggleButton search_toggle;
+        [GtkChild] unowned Adw.WindowTitle title_widget;
+        [GtkChild] unowned Gtk.ToggleButton sidebar_toggle;
+        [GtkChild] unowned Gtk.Paned sidebar_paned;
+        [GtkChild] unowned Gtk.SearchBar search_bar;
+        [GtkChild] unowned Gtk.SearchEntry search_entry;
+        [GtkChild] unowned Gtk.ListBox tag_list;
+        [GtkChild] unowned Gtk.Button clear_tag_button;
+        [GtkChild] unowned Gtk.ToggleButton filter_starred;
+        [GtkChild] unowned Gtk.ToggleButton filter_unread;
+        [GtkChild] unowned Gtk.ToggleButton filter_read;
+        [GtkChild] unowned Gtk.ListView document_list_view;
+        [GtkChild] unowned Gtk.Label status_label;
+        [GtkChild] unowned Gtk.Box detail_content;
+        [GtkChild] unowned Adw.StatusPage detail_empty;
+        [GtkChild] unowned Adw.EntryRow title_entry;
+        [GtkChild] unowned Adw.EntryRow authors_entry;
+        [GtkChild] unowned Adw.EntryRow year_entry;
+        [GtkChild] unowned Adw.EntryRow tags_entry;
+        [GtkChild] unowned Adw.EntryRow doi_entry;
+        [GtkChild] unowned Gtk.Button fetch_metadata_button;
+        [GtkChild] unowned Gtk.Spinner fetch_spinner;
+        [GtkChild] unowned Gtk.Label fetch_status_label;
+        [GtkChild] unowned Adw.EntryRow journal_entry;
+        [GtkChild] unowned Adw.EntryRow volume_entry;
+        [GtkChild] unowned Adw.EntryRow pages_entry;
+        [GtkChild] unowned Adw.EntryRow publisher_entry;
+        [GtkChild] unowned Gtk.TextView note_view;
+        [GtkChild] unowned Gtk.Label abstract_label;
+        [GtkChild] unowned Gtk.Label path_label;
+        [GtkChild] unowned Gtk.Button open_file_button;
+        [GtkChild] unowned Gtk.Button open_folder_button;
+        [GtkChild] unowned Gtk.Button remove_button;
+        [GtkChild] unowned Gtk.DropDown sort_dropdown;
+        [GtkChild] unowned Gtk.ToggleButton star_toggle_button;
+        [GtkChild] unowned Gtk.ToggleButton read_toggle_button;
+        [GtkChild] unowned Gtk.LinkButton doi_link_button;
+        [GtkChild] unowned Adw.ToastOverlay toast_overlay;
+        [GtkChild] unowned Gtk.Button open_notes_button;
+
+        private Library library;
+        private Document? selected_document = null;
+        private string? active_tag_filter = null;
+        private bool updating_detail = false;
+        private Gee.ArrayList<string>? pending_drop_paths = null;
+        private Gee.ArrayList<Document> undo_stack;
+        private GLib.ListStore list_store;
+        private Gtk.MultiSelection selection_model;
+        private GLib.FileMonitor? folder_monitor = null;
+
+        public Window (Application app) {
+            Object (application: app);
+        }
+
+        public bool is_library_empty () {
+            return library.file_path.length == 0;
+        }
+
+        construct {
+            library = new Library ();
+            undo_stack = new Gee.ArrayList<Document> ();
+
+            add_button.clicked.connect (on_add_clicked);
+            search_entry.search_changed.connect (on_search_changed);
+            clear_tag_button.clicked.connect (on_clear_tag);
+            tag_list.row_selected.connect (on_tag_selected);
+            fetch_metadata_button.clicked.connect (on_fetch_metadata);
+            open_file_button.clicked.connect (on_open_file);
+            open_folder_button.clicked.connect (on_open_folder);
+            remove_button.clicked.connect (on_remove_document);
+
+            title_entry.changed.connect (on_detail_changed);
+            authors_entry.changed.connect (on_detail_changed);
+            year_entry.changed.connect (on_detail_changed);
+            tags_entry.changed.connect (on_detail_changed);
+            doi_entry.changed.connect (on_detail_changed);
+            journal_entry.changed.connect (on_detail_changed);
+            volume_entry.changed.connect (on_detail_changed);
+            pages_entry.changed.connect (on_detail_changed);
+            publisher_entry.changed.connect (on_detail_changed);
+            note_view.buffer.changed.connect (on_detail_changed);
+
+            sort_dropdown.notify["selected"].connect (() => {
+                refresh_document_list ();
+            });
+
+            star_toggle_button.toggled.connect (() => {
+                if (updating_detail || selected_document == null) return;
+                selected_document.starred = star_toggle_button.active;
+                if (star_toggle_button.active) {
+                    star_toggle_button.icon_name = "starred-symbolic";
+                } else {
+                    star_toggle_button.icon_name = "non-starred-symbolic";
+                }
+                library.update_document (selected_document);
+                refresh_document_list ();
+            });
+
+            read_toggle_button.toggled.connect (() => {
+                if (updating_detail || selected_document == null) return;
+                selected_document.reading_status = read_toggle_button.active
+                    ? ReadingStatus.READ : ReadingStatus.UNREAD;
+                library.update_document (selected_document);
+                refresh_document_list ();
+            });
+
+            // Sidebar toggle
+            sidebar_toggle.active = true;
+            sidebar_toggle.toggled.connect (() => {
+                var start = sidebar_paned.start_child;
+                if (start != null) {
+                    start.visible = sidebar_toggle.active;
+                }
+            });
+
+            // Filter buttons — reading status toggles are mutually exclusive
+            filter_starred.toggled.connect (() => {
+                refresh_document_list ();
+            });
+            filter_unread.toggled.connect (() => {
+                if (filter_unread.active) filter_read.active = false;
+                refresh_document_list ();
+            });
+            filter_read.toggled.connect (() => {
+                if (filter_read.active) filter_unread.active = false;
+                refresh_document_list ();
+            });
+
+            library.changed.connect (refresh_view);
+
+            setup_drag_drop ();
+
+            // Save library on window close
+            this.close_request.connect (() => {
+                if (library.file_path.length > 0) {
+                    try {
+                        library.save ();
+                    } catch (Error e) {
+                        warning ("Save on close failed: %s", e.message);
+                    }
+                }
+                return false;  // allow close
+            });
+            setup_list_view ();
+
+            var search_action = new SimpleAction ("toggle-search", null);
+            search_action.activate.connect (() => {
+                search_toggle.active = !search_toggle.active;
+                if (search_toggle.active) {
+                    search_entry.grab_focus ();
+                }
+            });
+            this.add_action (search_action);
+
+            var dup_action = new SimpleAction ("find-duplicates", null);
+            dup_action.activate.connect (on_find_duplicates);
+            this.add_action (dup_action);
+
+            var stats_action = new SimpleAction ("show-stats", null);
+            stats_action.activate.connect (on_show_stats);
+            this.add_action (stats_action);
+
+            var props_action = new SimpleAction ("library-properties", null);
+            props_action.activate.connect (on_library_properties);
+            this.add_action (props_action);
+
+            var recent_action = new SimpleAction ("recent-libraries", null);
+            recent_action.activate.connect (on_recent_libraries);
+            this.add_action (recent_action);
+
+            var merge_action = new SimpleAction ("merge-library", null);
+            merge_action.activate.connect (on_merge_library);
+            this.add_action (merge_action);
+
+            var undo_remove_action = new SimpleAction ("undo-remove", null);
+            undo_remove_action.activate.connect (() => {
+                if (undo_stack.size > 0) {
+                    var doc = undo_stack.remove_at (undo_stack.size - 1);
+                    library.add_document (doc);
+                }
+            });
+            this.add_action (undo_remove_action);
+
+            var select_all_action = new SimpleAction ("select-all", null);
+            select_all_action.activate.connect (() => {
+                selection_model.select_all ();
+            });
+            this.add_action (select_all_action);
+
+            // Watch Folder action
+            var watch_action = new SimpleAction ("watch-folder", null);
+            watch_action.activate.connect (on_watch_folder);
+            this.add_action (watch_action);
+
+            // Stop Watching action
+            var stop_watch_action = new SimpleAction ("stop-watching", null);
+            stop_watch_action.activate.connect (on_stop_watching);
+            this.add_action (stop_watch_action);
+
+            // Open linked notes in external editor
+            open_notes_button.clicked.connect (on_open_notes);
+
+            // Restore watched folder from settings on startup
+            restore_watched_folder ();
+        }
+
+        private void setup_drag_drop () {
+            var drop_target = new Gtk.DropTarget (typeof (Gdk.FileList), Gdk.DragAction.COPY);
+            drop_target.drop.connect (on_drop);
+            ((Gtk.Widget) this).add_controller (drop_target);
+        }
+
+        private bool on_drop (Value value, double x, double y) {
+            var file_list = (Gdk.FileList) value;
+            var files = file_list.get_files ();
+
+            var paths = new Gee.ArrayList<string> ();
+            foreach (var file in files) {
+                paths.add (file.get_path ());
+            }
+
+            if (paths.size > 0) {
+                if (library.file_path.length == 0) {
+                    pending_drop_paths = paths;
+                    prompt_create_library_then_add ();
+                } else {
+                    add_files.begin (paths);
+                }
+            }
+
+            return true;
+        }
+
+        private void prompt_create_library_then_add () {
+            var dialog = new Adw.AlertDialog (
+                _("No Library Open"),
+                _("Create or open a library before adding documents.")
+            );
+            dialog.add_response ("cancel", _("Cancel"));
+            dialog.add_response ("create", _("Create Library"));
+            dialog.set_response_appearance ("create", Adw.ResponseAppearance.SUGGESTED);
+            dialog.default_response = "create";
+
+            dialog.response.connect ((response) => {
+                if (response == "create") {
+                    create_library_for_pending_files ();
+                } else {
+                    pending_drop_paths = null;
+                }
+            });
+
+            dialog.present (this);
+        }
+
+        private void create_library_for_pending_files () {
+            var dialog = new Gtk.FileDialog ();
+            dialog.title = _("Create Library");
+            dialog.initial_name = "library.json";
+
+            var filters = new GLib.ListStore (typeof (Gtk.FileFilter));
+            var json_filter = new Gtk.FileFilter ();
+            json_filter.name = _("CSL JSON (.json)");
+            json_filter.add_pattern ("*.json");
+            filters.append (json_filter);
+            var bib_filter = new Gtk.FileFilter ();
+            bib_filter.name = _("BibTeX (.bib)");
+            bib_filter.add_pattern ("*.bib");
+            filters.append (bib_filter);
+            dialog.filters = filters;
+
+            dialog.save.begin (this, null, (obj, res) => {
+                try {
+                    var file = dialog.save.end (res);
+                    setup_new_library (file.get_path ());
+                    if (pending_drop_paths != null) {
+                        add_files.begin (pending_drop_paths);
+                        pending_drop_paths = null;
+                    }
+                } catch (Error e) {
+                    pending_drop_paths = null;
+                }
+            });
+        }
+
+        private void setup_new_library (string path) {
+            library = new Library ();
+            library.changed.connect (refresh_view);
+            var fmt = path.has_suffix (".bib") ? LibraryFormat.BIBTEX : LibraryFormat.CSL_JSON;
+            try {
+                library.save_as (path, fmt);
+                save_last_library_path (path);
+            } catch (Error e) {
+                warning ("Failed to create library: %s", e.message);
+            }
+            refresh_view ();
+        }
+
+        private async void add_files (Gee.ArrayList<string> paths) {
+            if (library.file_path.length == 0) return;
+
+            var dialog = new AddDialog (library);
+            dialog.documents_ready.connect ((docs) => {
+                foreach (var doc in docs) {
+                    library.add_document (doc);
+                }
+            });
+            dialog.present (this);
+            yield dialog.extract_files (paths);
+        }
+
+        private void on_add_clicked () {
+            if (library.file_path.length == 0) {
+                prompt_create_library_then_add ();
+                return;
+            }
+
+            var dialog = new Gtk.FileDialog ();
+            dialog.title = _("Add Documents");
+
+            var filters = new GLib.ListStore (typeof (Gtk.FileFilter));
+            var all_docs = new Gtk.FileFilter ();
+            all_docs.name = _("Documents");
+            all_docs.add_mime_type ("application/pdf");
+            all_docs.add_mime_type ("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+            all_docs.add_mime_type ("application/vnd.oasis.opendocument.text");
+            all_docs.add_mime_type ("text/plain");
+            all_docs.add_pattern ("*.pdf");
+            all_docs.add_pattern ("*.docx");
+            all_docs.add_pattern ("*.odt");
+            all_docs.add_pattern ("*.txt");
+            all_docs.add_pattern ("*.epub");
+            all_docs.add_pattern ("*.md");
+            filters.append (all_docs);
+
+            var all_files = new Gtk.FileFilter ();
+            all_files.name = _("All Files");
+            all_files.add_pattern ("*");
+            filters.append (all_files);
+
+            dialog.filters = filters;
+
+            dialog.open_multiple.begin (this, null, (obj, res) => {
+                try {
+                    var files = dialog.open_multiple.end (res);
+                    var paths = new Gee.ArrayList<string> ();
+                    for (uint i = 0; i < files.get_n_items (); i++) {
+                        var file = (File) files.get_item (i);
+                        paths.add (file.get_path ());
+                    }
+                    if (paths.size > 0) {
+                        add_files.begin (paths);
+                    }
+                } catch (Error e) {}
+            });
+        }
+
+        private void on_search_changed () {
+            refresh_document_list ();
+        }
+
+        private void on_clear_tag () {
+            tag_list.unselect_all ();
+            active_tag_filter = null;
+            filter_starred.active = false;
+            filter_unread.active = false;
+            filter_read.active = false;
+            refresh_document_list ();
+        }
+
+        private void on_tag_selected (Gtk.ListBoxRow? row) {
+            if (row == null) {
+                active_tag_filter = null;
+            } else {
+                var tag_row = row as TagRow;
+                if (tag_row != null) {
+                    active_tag_filter = tag_row.tag_name;
+                }
+            }
+            refresh_document_list ();
+        }
+
+        private Gee.ArrayList<Document> get_selected_documents () {
+            var docs = new Gee.ArrayList<Document> ();
+            var bitset = selection_model.get_selection ();
+            uint pos = 0;
+            uint val;
+            // Iterate through the selection bitset
+            if (bitset.get_size () > 0) {
+                var iter = Gtk.BitsetIter ();
+                if (iter.init_first (bitset, out val)) {
+                    docs.add ((Document) list_store.get_item (val));
+                    while (iter.next (out val)) {
+                        docs.add ((Document) list_store.get_item (val));
+                    }
+                }
+            }
+            return docs;
+        }
+
+        private void setup_list_view () {
+            list_store = new GLib.ListStore (typeof (Document));
+
+            selection_model = new Gtk.MultiSelection (list_store);
+            selection_model.selection_changed.connect (() => {
+                var selected = get_selected_documents ();
+                if (selected.size == 1) {
+                    selected_document = selected[0];
+                    show_detail (true);
+                    populate_detail ();
+                } else if (selected.size > 1) {
+                    selected_document = selected[0];
+                    show_detail (true);
+                    populate_detail ();
+                } else {
+                    selected_document = null;
+                    show_detail (false);
+                }
+            });
+
+            var factory = new Gtk.SignalListItemFactory ();
+            factory.setup.connect ((obj) => {
+                var li = (Gtk.ListItem) obj;
+                var row = new DocumentRow ();
+                row.star_toggled.connect (() => {
+                    if (row.document != null) {
+                        library.update_document (row.document);
+                        if (selected_document == row.document) {
+                            populate_detail ();
+                        }
+                    }
+                });
+                li.child = row;
+
+                // Double-click to open file
+                var dbl_click = new Gtk.GestureClick ();
+                dbl_click.button = Gdk.BUTTON_PRIMARY;
+                dbl_click.pressed.connect ((n_press, x, y) => {
+                    if (n_press == 2 && row.document != null) {
+                        var path = row.document.get_resolved_path (get_library_dir ());
+                        Utils.open_file (path);
+                    }
+                });
+                li.child.add_controller (dbl_click);
+
+                // Right-click context menu
+                setup_item_context_menu (li, row);
+            });
+
+            factory.bind.connect ((obj) => {
+                var li = (Gtk.ListItem) obj;
+                var row = li.child as DocumentRow;
+                var doc = li.item as Document;
+                if (row != null && doc != null) {
+                    row.bind_document (doc);
+                }
+            });
+
+            factory.unbind.connect ((obj) => {
+                var li = (Gtk.ListItem) obj;
+                var row = li.child as DocumentRow;
+                if (row != null) {
+                    row.unbind_document ();
+                }
+            });
+
+            document_list_view.factory = factory;
+            document_list_view.model = selection_model;
+            document_list_view.add_css_class ("document-list");
+        }
+
+        private void setup_item_context_menu (Gtk.ListItem list_item, DocumentRow row) {
+            var menu = new GLib.Menu ();
+            menu.append (_("Open File"), "row.open-file");
+            menu.append (_("Open Folder"), "row.open-folder");
+
+            var status_section = new GLib.Menu ();
+            status_section.append (_("Mark as Unread"), "row.mark-unread");
+            status_section.append (_("Mark as Read"), "row.mark-read");
+            status_section.append (_("Toggle Star"), "row.toggle-star");
+            menu.append_section (null, status_section);
+
+            var select_section = new GLib.Menu ();
+            select_section.append (_("Select All"), "row.select-all");
+            menu.append_section (null, select_section);
+
+            var citation_section = new GLib.Menu ();
+            citation_section.append (_("Copy Citation (APA)"), "row.copy-apa");
+            citation_section.append (_("Copy Citation (BibTeX)"), "row.copy-bibtex");
+            menu.append_section (null, citation_section);
+
+            var delete_section = new GLib.Menu ();
+            delete_section.append (_("Remove"), "row.remove");
+            menu.append_section (null, delete_section);
+
+            var action_group = new SimpleActionGroup ();
+
+            var open_action = new SimpleAction ("open-file", null);
+            open_action.activate.connect (() => {
+                if (row.document == null) return;
+                var path = row.document.get_resolved_path (get_library_dir ());
+                Utils.open_file (path);
+            });
+            action_group.add_action (open_action);
+
+            var folder_action = new SimpleAction ("open-folder", null);
+            folder_action.activate.connect (() => {
+                if (row.document == null) return;
+                var folder = row.document.get_folder_path (get_library_dir ());
+                Utils.open_folder (folder);
+            });
+            action_group.add_action (folder_action);
+
+            var remove_action = new SimpleAction ("remove", null);
+            remove_action.activate.connect (() => {
+                on_remove_document ();
+            });
+            action_group.add_action (remove_action);
+
+            var apa_action = new SimpleAction ("copy-apa", null);
+            apa_action.activate.connect (() => {
+                var selected = get_selected_documents ();
+                if (selected.size == 0 && row.document != null) {
+                    selected.add (row.document);
+                }
+                var sb = new StringBuilder ();
+                foreach (var doc in selected) {
+                    if (sb.len > 0) sb.append ("\n\n");
+                    sb.append (CitationFormatter.format_apa (doc));
+                }
+                Gdk.Display.get_default ().get_clipboard ().set_text (sb.str);
+            });
+            action_group.add_action (apa_action);
+
+            var bibtex_action = new SimpleAction ("copy-bibtex", null);
+            bibtex_action.activate.connect (() => {
+                var selected = get_selected_documents ();
+                if (selected.size == 0 && row.document != null) {
+                    selected.add (row.document);
+                }
+                var sb = new StringBuilder ();
+                foreach (var doc in selected) {
+                    if (sb.len > 0) sb.append ("\n");
+                    sb.append (CitationFormatter.format_bibtex (doc));
+                }
+                Gdk.Display.get_default ().get_clipboard ().set_text (sb.str);
+            });
+            action_group.add_action (bibtex_action);
+
+            // Batch status actions — apply to all selected, or just this row
+            var mark_unread_action = new SimpleAction ("mark-unread", null);
+            mark_unread_action.activate.connect (() => {
+                apply_to_selected_or_row (row, (doc) => {
+                    doc.reading_status = ReadingStatus.UNREAD;
+                });
+            });
+            action_group.add_action (mark_unread_action);
+
+            var mark_read_action = new SimpleAction ("mark-read", null);
+            mark_read_action.activate.connect (() => {
+                apply_to_selected_or_row (row, (doc) => {
+                    doc.reading_status = ReadingStatus.READ;
+                });
+            });
+            action_group.add_action (mark_read_action);
+
+            var toggle_star_action = new SimpleAction ("toggle-star", null);
+            toggle_star_action.activate.connect (() => {
+                apply_to_selected_or_row (row, (doc) => {
+                    doc.starred = !doc.starred;
+                });
+            });
+            action_group.add_action (toggle_star_action);
+
+            var select_all_action = new SimpleAction ("select-all", null);
+            select_all_action.activate.connect (() => {
+                selection_model.select_all ();
+            });
+            action_group.add_action (select_all_action);
+
+            list_item.child.insert_action_group ("row", action_group);
+
+            var popover = new Gtk.PopoverMenu.from_model (menu);
+            popover.set_parent (list_item.child);
+            popover.has_arrow = false;
+
+            var gesture = new Gtk.GestureClick ();
+            gesture.button = Gdk.BUTTON_SECONDARY;
+            gesture.pressed.connect ((n_press, x, y) => {
+                var rect = Gdk.Rectangle () { x = (int) x, y = (int) y, width = 1, height = 1 };
+                popover.pointing_to = rect;
+                popover.popup ();
+            });
+            list_item.child.add_controller (gesture);
+        }
+
+        private void show_detail (bool show) {
+            detail_content.visible = show;
+            detail_empty.visible = !show;
+        }
+
+        private void populate_detail () {
+            if (selected_document == null) return;
+
+            updating_detail = true;
+            title_entry.text = selected_document.title;
+            authors_entry.text = selected_document.get_authors_display ();
+            year_entry.text = selected_document.year;
+            tags_entry.text = selected_document.get_tags_display ();
+            doi_entry.text = selected_document.doi;
+            journal_entry.text = selected_document.journal;
+            volume_entry.text = selected_document.volume;
+            pages_entry.text = selected_document.pages;
+            publisher_entry.text = selected_document.publisher;
+            note_view.buffer.text = selected_document.note;
+
+            path_label.label = selected_document.path;
+
+            fetch_status_label.visible = false;
+
+            abstract_label.label = selected_document.abstract_text.length > 0
+                ? selected_document.abstract_text
+                : _("(No abstract)");
+
+            // Star toggle
+            star_toggle_button.active = selected_document.starred;
+            star_toggle_button.icon_name = selected_document.starred
+                ? "starred-symbolic" : "non-starred-symbolic";
+
+            // Reading status
+            read_toggle_button.active = selected_document.reading_status == ReadingStatus.READ;
+
+            // DOI link
+            if (selected_document.doi.length > 0) {
+                doi_link_button.uri = "https://doi.org/" + selected_document.doi;
+                doi_link_button.label = "https://doi.org/" + selected_document.doi;
+                doi_link_button.visible = true;
+            } else {
+                doi_link_button.visible = false;
+            }
+
+            updating_detail = false;
+        }
+
+        private void on_detail_changed () {
+            if (updating_detail || selected_document == null) return;
+
+            selected_document.title = title_entry.text;
+            selected_document.set_authors_from_string (authors_entry.text);
+            selected_document.year = year_entry.text;
+            selected_document.set_tags_from_string (tags_entry.text);
+            selected_document.doi = doi_entry.text;
+            selected_document.journal = journal_entry.text;
+            selected_document.volume = volume_entry.text;
+            selected_document.pages = pages_entry.text;
+            selected_document.publisher = publisher_entry.text;
+            selected_document.note = note_view.buffer.text;
+
+            // Update DOI link
+            if (selected_document.doi.length > 0) {
+                doi_link_button.uri = "https://doi.org/" + selected_document.doi;
+                doi_link_button.label = "https://doi.org/" + selected_document.doi;
+                doi_link_button.visible = true;
+            } else {
+                doi_link_button.visible = false;
+            }
+
+            library.update_document (selected_document);
+        }
+
+        /**
+         * Smart metadata fetch: if DOI is filled, fetch by DOI.
+         * Otherwise, search by title. One button, one action.
+         */
+        private void on_fetch_metadata () {
+            if (selected_document == null) return;
+
+            var doi = doi_entry.text.strip ();
+            var title = title_entry.text.strip ();
+
+            // Clean DOI if provided
+            if (doi.length > 0) {
+                if (doi.has_prefix ("https://doi.org/")) {
+                    doi = doi.substring ("https://doi.org/".length);
+                } else if (doi.has_prefix ("http://doi.org/")) {
+                    doi = doi.substring ("http://doi.org/".length);
+                } else if (doi.has_prefix ("doi:")) {
+                    doi = doi.substring ("doi:".length);
+                }
+                doi = doi.strip ();
+                selected_document.doi = doi;
+                updating_detail = true;
+                doi_entry.text = doi;
+                updating_detail = false;
+            }
+
+            if (doi.length == 0 && title.length < 5) {
+                fetch_status_label.label = _("Enter a DOI or a title to search.");
+                fetch_status_label.remove_css_class ("success");
+                fetch_status_label.add_css_class ("error");
+                fetch_status_label.visible = true;
+                return;
+            }
+
+            // Save title for search
+            selected_document.title = title;
+
+            fetch_metadata_button.sensitive = false;
+            fetch_spinner.visible = true;
+            fetch_spinner.spinning = true;
+            fetch_status_label.remove_css_class ("error");
+            fetch_status_label.remove_css_class ("success");
+
+            if (doi.length > 0) {
+                // Fetch by DOI
+                fetch_status_label.label = _("Fetching by DOI from api.crossref.org...");
+                fetch_status_label.visible = true;
+
+                CrossRefClient.fetch_metadata.begin (selected_document, (obj, res) => {
+                    fetch_spinner.visible = false;
+                    fetch_spinner.spinning = false;
+                    fetch_metadata_button.sensitive = true;
+
+                    try {
+                        CrossRefClient.fetch_metadata.end (res);
+                        show_fetch_success ();
+                    } catch (Error e) {
+                        fetch_status_label.label = _("Fetch failed: %s").printf (e.message);
+                        fetch_status_label.remove_css_class ("success");
+                        fetch_status_label.add_css_class ("error");
+                        fetch_status_label.visible = true;
+                    }
+                });
+            } else {
+                // Search by title
+                fetch_status_label.label = _("Searching by title on api.crossref.org...");
+                fetch_status_label.visible = true;
+
+                CrossRefClient.search_by_title.begin (selected_document, (obj, res) => {
+                    fetch_spinner.visible = false;
+                    fetch_spinner.spinning = false;
+                    fetch_metadata_button.sensitive = true;
+
+                    try {
+                        bool found = CrossRefClient.search_by_title.end (res);
+                        if (found) {
+                            show_fetch_success ();
+                        } else {
+                            fetch_status_label.label = _("No match found for this title.");
+                            fetch_status_label.remove_css_class ("success");
+                            fetch_status_label.add_css_class ("error");
+                            fetch_status_label.visible = true;
+                        }
+                    } catch (Error e) {
+                        fetch_status_label.label = _("Search failed: %s").printf (e.message);
+                        fetch_status_label.remove_css_class ("success");
+                        fetch_status_label.add_css_class ("error");
+                        fetch_status_label.visible = true;
+                    }
+                });
+            }
+        }
+
+        private void show_fetch_success () {
+            var fields = new Gee.ArrayList<string> ();
+            if (selected_document.title.length > 0) fields.add (_("title"));
+            if (selected_document.authors.size > 0) fields.add (_("authors"));
+            if (selected_document.year.length > 0) fields.add (_("year"));
+            if (selected_document.journal.length > 0) fields.add (_("journal"));
+            if (selected_document.abstract_text.length > 0) fields.add (_("abstract"));
+            if (selected_document.publisher.length > 0) fields.add (_("publisher"));
+
+            var field_parts = new string[fields.size];
+            for (int i = 0; i < fields.size; i++) {
+                field_parts[i] = fields[i];
+            }
+
+            fetch_status_label.label = _("Fetched: %s").printf (
+                string.joinv (", ", field_parts)
+            );
+            fetch_status_label.remove_css_class ("error");
+            fetch_status_label.add_css_class ("success");
+            fetch_status_label.visible = true;
+
+            populate_detail ();
+            library.update_document (selected_document);
+            refresh_document_list ();
+        }
+
+        private void on_find_duplicates () {
+            var groups = library.find_all_duplicates ();
+
+            if (groups.size == 0) {
+                var dialog = new Adw.AlertDialog (
+                    _("No Duplicates Found"),
+                    _("No duplicate documents were found in the library.")
+                );
+                dialog.add_response ("ok", _("OK"));
+                dialog.present (this);
+                return;
+            }
+
+            var sb = new StringBuilder ();
+            int total_dups = 0;
+            foreach (var group in groups) {
+                total_dups += group.size - 1;
+                sb.append ("---\n");
+                foreach (var doc in group) {
+                    sb.append ("  %s".printf (doc.title));
+                    if (doc.doi.length > 0) {
+                        sb.append (" [%s]".printf (doc.doi));
+                    }
+                    sb.append ("\n");
+                }
+            }
+
+            var dialog = new Adw.AlertDialog (
+                ngettext (
+                    "%d Duplicate Group Found",
+                    "%d Duplicate Groups Found",
+                    (ulong) groups.size
+                ).printf (groups.size),
+                _("%d documents appear to be duplicates:\n\n%s\nRemove duplicates? (Keeps the first entry in each group.)").printf (
+                    total_dups, sb.str
+                )
+            );
+            dialog.add_response ("cancel", _("Keep All"));
+            dialog.add_response ("remove", _("Remove Duplicates"));
+            dialog.set_response_appearance ("remove", Adw.ResponseAppearance.DESTRUCTIVE);
+            dialog.default_response = "cancel";
+
+            dialog.response.connect ((response) => {
+                if (response == "remove") {
+                    foreach (var group in groups) {
+                        for (int i = 1; i < group.size; i++) {
+                            if (selected_document == group[i]) {
+                                selected_document = null;
+                                show_detail (false);
+                            }
+                            library.remove_document (group[i]);
+                        }
+                    }
+                }
+            });
+
+            dialog.present (this);
+        }
+
+        private void on_show_stats () {
+            if (library.documents.size == 0) {
+                var dialog = new Adw.AlertDialog (
+                    _("Library Statistics"),
+                    _("No documents in the library.")
+                );
+                dialog.add_response ("ok", _("OK"));
+                dialog.present (this);
+                return;
+            }
+
+            var sb = new StringBuilder ();
+            int total = library.documents.size;
+            sb.append (_("Total documents: %d\n").printf (total));
+
+            // Documents per filetype
+            var filetypes = new Gee.HashMap<string, int> ();
+            foreach (var doc in library.documents) {
+                var ft = doc.filetype.length > 0 ? doc.filetype : "unknown";
+                filetypes[ft] = filetypes.has_key (ft) ? filetypes[ft] + 1 : 1;
+            }
+            sb.append (_("\nDocuments per filetype:\n"));
+            foreach (var entry in filetypes.entries) {
+                sb.append ("  %s: %d\n".printf (entry.key, entry.value));
+            }
+
+            // Documents per year (top 10)
+            var years = new Gee.HashMap<string, int> ();
+            foreach (var doc in library.documents) {
+                var yr = doc.year.length > 0 ? doc.year : "unknown";
+                years[yr] = years.has_key (yr) ? years[yr] + 1 : 1;
+            }
+            // Sort by count descending
+            var year_entries = new Gee.ArrayList<Gee.Map.Entry<string, int>> ();
+            foreach (var entry in years.entries) {
+                year_entries.add (entry);
+            }
+            year_entries.sort ((a, b) => {
+                return b.value - a.value;
+            });
+            sb.append (_("\nTop years:\n"));
+            int year_count = int.min (10, year_entries.size);
+            for (int i = 0; i < year_count; i++) {
+                sb.append ("  %s: %d\n".printf (year_entries[i].key, year_entries[i].value));
+            }
+
+            // Top 10 tags
+            var tag_counts = new Gee.HashMap<string, int> ();
+            foreach (var doc in library.documents) {
+                foreach (var tag in doc.tags) {
+                    tag_counts[tag] = tag_counts.has_key (tag) ? tag_counts[tag] + 1 : 1;
+                }
+            }
+            var tag_entries = new Gee.ArrayList<Gee.Map.Entry<string, int>> ();
+            foreach (var entry in tag_counts.entries) {
+                tag_entries.add (entry);
+            }
+            tag_entries.sort ((a, b) => {
+                return b.value - a.value;
+            });
+            if (tag_entries.size > 0) {
+                sb.append (_("\nTop tags:\n"));
+                int tag_limit = int.min (10, tag_entries.size);
+                for (int i = 0; i < tag_limit; i++) {
+                    sb.append ("  %s: %d\n".printf (tag_entries[i].key, tag_entries[i].value));
+                }
+            }
+
+            // DOI stats
+            int with_doi = 0;
+            foreach (var doc in library.documents) {
+                if (doc.doi.length > 0) with_doi++;
+            }
+            sb.append (_("\nWith DOI: %d\nWithout DOI: %d\n").printf (with_doi, total - with_doi));
+
+            var dialog = new Adw.AlertDialog (
+                _("Library Statistics"),
+                sb.str
+            );
+            dialog.add_response ("ok", _("OK"));
+            dialog.present (this);
+        }
+
+        private void on_recent_libraries () {
+            var recent = RecentLibraries.load ();
+
+            if (recent.size == 0) {
+                var d = new Adw.AlertDialog (
+                    _("No Recent Libraries"),
+                    _("No libraries have been opened yet.")
+                );
+                d.add_response ("ok", _("OK"));
+                d.present (this);
+                return;
+            }
+
+            var dialog = new Adw.Dialog ();
+            dialog.title = _("Recent Libraries");
+            dialog.content_width = 450;
+            dialog.content_height = 300;
+
+            var toolbar = new Adw.ToolbarView ();
+            var header = new Adw.HeaderBar ();
+            header.show_start_title_buttons = false;
+            header.show_end_title_buttons = false;
+            var close_btn = new Gtk.Button.with_label (_("Close"));
+            header.pack_start (close_btn);
+            toolbar.add_top_bar (header);
+
+            var scrolled = new Gtk.ScrolledWindow ();
+            scrolled.hscrollbar_policy = Gtk.PolicyType.NEVER;
+
+            var listbox = new Gtk.ListBox ();
+            listbox.selection_mode = Gtk.SelectionMode.NONE;
+            listbox.add_css_class ("boxed-list");
+            listbox.margin_start = 12;
+            listbox.margin_end = 12;
+            listbox.margin_top = 12;
+            listbox.margin_bottom = 12;
+
+            foreach (var path in recent) {
+                var row = new Adw.ActionRow ();
+                row.title = Path.get_basename (path);
+                row.subtitle = path;
+                row.activatable = true;
+                row.add_suffix (new Gtk.Image.from_icon_name ("go-next-symbolic"));
+
+                row.activated.connect (() => {
+                    var file = File.new_for_path (path);
+                    if (file.query_exists ()) {
+                        open_library_file (file);
+                        dialog.close ();
+                    } else {
+                        row.subtitle = _("File not found: %s").printf (path);
+                    }
+                });
+
+                listbox.append (row);
+            }
+
+            scrolled.child = listbox;
+            toolbar.content = scrolled;
+            dialog.child = toolbar;
+
+            close_btn.clicked.connect (() => {
+                dialog.close ();
+            });
+
+            dialog.present (this);
+        }
+
+        private void on_library_properties () {
+            if (library.file_path.length == 0) {
+                var d = new Adw.AlertDialog (
+                    _("No Library Open"),
+                    _("Open or create a library first.")
+                );
+                d.add_response ("ok", _("OK"));
+                d.present (this);
+                return;
+            }
+
+            var dialog = new Adw.Dialog ();
+            dialog.title = _("Library Properties");
+            dialog.content_width = 400;
+            dialog.content_height = 350;
+
+            var toolbar = new Adw.ToolbarView ();
+            var header = new Adw.HeaderBar ();
+            header.show_start_title_buttons = false;
+            header.show_end_title_buttons = false;
+
+            var close_btn = new Gtk.Button.with_label (_("Close"));
+            header.pack_start (close_btn);
+
+            var save_btn = new Gtk.Button.with_label (_("Save"));
+            save_btn.add_css_class ("suggested-action");
+            header.pack_end (save_btn);
+
+            toolbar.add_top_bar (header);
+
+            var clamp = new Adw.Clamp ();
+            clamp.maximum_size = 380;
+            clamp.margin_start = 16;
+            clamp.margin_end = 16;
+            clamp.margin_top = 16;
+            clamp.margin_bottom = 16;
+
+            var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
+
+            var file_group = new Adw.PreferencesGroup ();
+            file_group.title = _("File");
+
+            var path_row = new Adw.ActionRow ();
+            path_row.title = _("Path");
+            path_row.subtitle = library.file_path;
+            path_row.subtitle_selectable = true;
+            file_group.add (path_row);
+
+            var format_row = new Adw.ActionRow ();
+            format_row.title = _("Format");
+            format_row.subtitle = library.format == LibraryFormat.CSL_JSON ? "CSL JSON" : "BibTeX";
+            file_group.add (format_row);
+
+            var count_row = new Adw.ActionRow ();
+            count_row.title = _("Documents");
+            count_row.subtitle = library.documents.size.to_string ();
+            file_group.add (count_row);
+
+            box.append (file_group);
+
+            var meta_group = new Adw.PreferencesGroup ();
+            meta_group.title = _("Metadata");
+
+            var author_entry = new Adw.EntryRow ();
+            author_entry.title = _("Author");
+            author_entry.text = library.library_author;
+            meta_group.add (author_entry);
+
+            var created_row = new Adw.ActionRow ();
+            created_row.title = _("Created");
+            created_row.subtitle = library.created.length > 0 ? library.created : _("Unknown");
+            meta_group.add (created_row);
+
+            var updated_row = new Adw.ActionRow ();
+            updated_row.title = _("Last Updated");
+            updated_row.subtitle = library.updated.length > 0 ? library.updated : _("Never");
+            meta_group.add (updated_row);
+
+            var version_row = new Adw.ActionRow ();
+            version_row.title = _("Pince Version");
+            version_row.subtitle = library.pince_version;
+            meta_group.add (version_row);
+
+            box.append (meta_group);
+
+            clamp.child = box;
+            toolbar.content = clamp;
+            dialog.child = toolbar;
+
+            close_btn.clicked.connect (() => {
+                dialog.close ();
+            });
+
+            save_btn.clicked.connect (() => {
+                library.library_author = author_entry.text;
+                try {
+                    library.save ();
+                    updated_row.subtitle = library.updated;
+                } catch (Error e) {
+                    warning ("Save failed: %s", e.message);
+                }
+                dialog.close ();
+            });
+
+            dialog.present (this);
+        }
+
+        private void on_merge_library () {
+            if (library.file_path.length == 0) {
+                var dialog = new Adw.AlertDialog (
+                    _("No Library Open"),
+                    _("Open or create a library before merging.")
+                );
+                dialog.add_response ("ok", _("OK"));
+                dialog.present (this);
+                return;
+            }
+
+            var dialog = new Gtk.FileDialog ();
+            dialog.title = _("Select Library to Merge");
+
+            var filters = new GLib.ListStore (typeof (Gtk.FileFilter));
+            var lib_filter = new Gtk.FileFilter ();
+            lib_filter.name = _("Library Files");
+            lib_filter.add_pattern ("*.json");
+            lib_filter.add_pattern ("*.bib");
+            filters.append (lib_filter);
+            dialog.filters = filters;
+
+            dialog.open.begin (this, null, (obj, res) => {
+                try {
+                    var file = dialog.open.end (res);
+                    merge_library_from_file (file.get_path ());
+                } catch (Error e) {}
+            });
+        }
+
+        private void merge_library_from_file (string path) {
+            var temp_lib = new Library ();
+            try {
+                temp_lib.load (path);
+            } catch (Error e) {
+                var err_dialog = new Adw.AlertDialog (
+                    _("Error Loading Library"),
+                    e.message
+                );
+                err_dialog.add_response ("ok", _("OK"));
+                err_dialog.present (this);
+                return;
+            }
+
+            int added = 0;
+            int skipped = 0;
+
+            foreach (var doc in temp_lib.documents) {
+                var existing = library.find_duplicate (doc);
+                if (existing != null) {
+                    skipped++;
+                } else {
+                    library.add_document (doc);
+                    added++;
+                }
+            }
+
+            if (toast_overlay != null) {
+                var toast = new Adw.Toast (
+                    _("Merged %d documents, %d duplicates skipped").printf (added, skipped)
+                );
+                toast.timeout = 5;
+                toast_overlay.add_toast (toast);
+            } else {
+                var summary = new Adw.AlertDialog (
+                    _("Merge Complete"),
+                    _("Merged %d documents, %d duplicates skipped.").printf (added, skipped)
+                );
+                summary.add_response ("ok", _("OK"));
+                summary.present (this);
+            }
+        }
+
+        private delegate void DocAction (Document doc);
+
+        private void apply_to_selected_or_row (DocumentRow row, DocAction action) {
+            var selected = get_selected_documents ();
+            if (selected.size > 1) {
+                foreach (var doc in selected) {
+                    action (doc);
+                    library.update_document (doc);
+                }
+            } else if (row.document != null) {
+                action (row.document);
+                library.update_document (row.document);
+            }
+            if (selected_document != null) {
+                populate_detail ();
+            }
+            refresh_document_list ();
+        }
+
+        private string get_library_dir () {
+            return library.get_library_dir ();
+        }
+
+        private GLib.Settings? get_settings () {
+            var schema_source = SettingsSchemaSource.get_default ();
+            if (schema_source == null) return null;
+            var schema = schema_source.lookup ("io.github.essicolo.Pince", true);
+            if (schema == null) return null;
+            return new GLib.Settings ("io.github.essicolo.Pince");
+        }
+
+        private void on_open_file () {
+            if (selected_document == null) return;
+            var path = selected_document.get_resolved_path (get_library_dir ());
+            Utils.open_file (path);
+        }
+
+        private void on_open_folder () {
+            if (selected_document == null) return;
+            var folder = selected_document.get_folder_path (get_library_dir ());
+            Utils.open_folder (folder);
+        }
+
+        private void on_remove_document () {
+            var selected = get_selected_documents ();
+            if (selected.size == 0 && selected_document != null) {
+                selected.add (selected_document);
+            }
+            if (selected.size == 0) return;
+
+            selected_document = null;
+            show_detail (false);
+
+            foreach (var doc in selected) {
+                library.remove_document (doc);
+                undo_stack.add (doc);
+            }
+            while (undo_stack.size > 10) {
+                undo_stack.remove_at (0);
+            }
+
+            var toast = new Adw.Toast (
+                ngettext (
+                    _("Removed %d document"),
+                    _("Removed %d documents"),
+                    (ulong) selected.size
+                ).printf (selected.size)
+            );
+            toast.button_label = _("Undo");
+            toast.action_name = "win.undo-remove";
+            toast_overlay.add_toast (toast);
+        }
+
+        private void push_undo_and_toast (Document doc) {
+            undo_stack.add (doc);
+            // Keep only last 5
+            while (undo_stack.size > 5) {
+                undo_stack.remove_at (0);
+            }
+
+            var toast = new Adw.Toast (_("Document removed"));
+            toast.button_label = _("Undo");
+            toast.action_name = "win.undo-remove";
+            toast.timeout = 5;
+            toast_overlay.add_toast (toast);
+        }
+
+        private void refresh_view () {
+            refresh_tag_list ();
+            refresh_document_list ();
+            update_status ();
+        }
+
+        private void refresh_tag_list () {
+            Gtk.Widget? child = tag_list.get_first_child ();
+            while (child != null) {
+                var next = child.get_next_sibling ();
+                tag_list.remove (child);
+                child = next;
+            }
+
+            var tags = library.get_all_tags ();
+            foreach (var tag in tags) {
+                var count = 0;
+                foreach (var doc in library.documents) {
+                    if (doc.has_tag (tag)) count++;
+                }
+                var row = new TagRow (tag, count);
+                tag_list.append (row);
+            }
+        }
+
+        private void refresh_document_list () {
+            var query = search_entry.text.strip ();
+
+            // Reading status filter (mutually exclusive)
+            ReadingStatus? reading_filter = null;
+            if (filter_unread.active) reading_filter = ReadingStatus.UNREAD;
+            else if (filter_read.active) reading_filter = ReadingStatus.READ;
+
+            bool? starred_filter = null;
+            if (filter_starred.active) starred_filter = true;
+
+            var filtered = library.filter (
+                query.length > 0 ? query : null,
+                active_tag_filter,
+                starred_filter,
+                reading_filter
+            );
+
+            var sort_field = (SortField) sort_dropdown.selected;
+            var sorted = library.sort_by (filtered, sort_field);
+
+            list_store.remove_all ();
+            foreach (var doc in sorted) {
+                list_store.append (doc);
+            }
+        }
+
+        private void update_status () {
+            if (library.file_path.length == 0) {
+                status_label.label = _("No library open");
+                title_widget.title = "Pince";
+                title_widget.subtitle = "";
+            } else {
+                var basename = Path.get_basename (library.file_path);
+                status_label.label = _("%s — %d documents").printf (basename, library.documents.size);
+                title_widget.title = basename;
+                title_widget.subtitle = library.file_path;
+            }
+        }
+
+        public void open_library_file (File file) {
+            try {
+                library.load (file.get_path ());
+                save_last_library_path (file.get_path ());
+            } catch (Error e) {
+                var dialog = new Adw.AlertDialog (
+                    _("Error Opening Library"),
+                    e.message
+                );
+                dialog.add_response ("ok", _("OK"));
+                dialog.present (this);
+            }
+        }
+
+        private void save_last_library_path (string path) {
+            RecentLibraries.add (path);
+            var settings = get_settings ();
+            if (settings != null) {
+                settings.set_string ("last-library-path", path);
+            }
+        }
+
+        public void show_open_library_dialog () {
+            var dialog = new Gtk.FileDialog ();
+            dialog.title = _("Open Library");
+
+            var filters = new GLib.ListStore (typeof (Gtk.FileFilter));
+            var lib_filter = new Gtk.FileFilter ();
+            lib_filter.name = _("Library Files");
+            lib_filter.add_pattern ("*.json");
+            lib_filter.add_pattern ("*.bib");
+            filters.append (lib_filter);
+            dialog.filters = filters;
+
+            dialog.open.begin (this, null, (obj, res) => {
+                try {
+                    var file = dialog.open.end (res);
+                    open_library_file (file);
+                } catch (Error e) {}
+            });
+        }
+
+        public void show_new_library_dialog () {
+            var dialog = new Gtk.FileDialog ();
+            dialog.title = _("New Library");
+
+            var filters = new GLib.ListStore (typeof (Gtk.FileFilter));
+            var json_filter = new Gtk.FileFilter ();
+            json_filter.name = _("CSL JSON (.json)");
+            json_filter.add_pattern ("*.json");
+            filters.append (json_filter);
+            var bib_filter = new Gtk.FileFilter ();
+            bib_filter.name = _("BibTeX (.bib)");
+            bib_filter.add_pattern ("*.bib");
+            filters.append (bib_filter);
+            dialog.filters = filters;
+            dialog.initial_name = "library.json";
+
+            dialog.save.begin (this, null, (obj, res) => {
+                try {
+                    var file = dialog.save.end (res);
+                    setup_new_library (file.get_path ());
+                } catch (Error e) {}
+            });
+        }
+
+        // --- Watch Folder feature ---
+
+        private void on_watch_folder () {
+            var dialog = new Gtk.FileDialog ();
+            dialog.title = _("Select Folder to Watch");
+
+            dialog.select_folder.begin (this, null, (obj, res) => {
+                try {
+                    var file = dialog.select_folder.end (res);
+                    var folder_path = file.get_path ();
+                    start_watching_folder (folder_path);
+                    var settings = get_settings ();
+                    if (settings != null) {
+                        settings.set_string ("watch-folder-path", folder_path);
+                    }
+                    var toast = new Adw.Toast (_("Watching folder: %s").printf (Path.get_basename (folder_path)));
+                    toast.timeout = 3;
+                    toast_overlay.add_toast (toast);
+                } catch (Error e) {
+                    // User cancelled the dialog
+                }
+            });
+        }
+
+        private void on_stop_watching () {
+            if (folder_monitor != null) {
+                folder_monitor.cancel ();
+                folder_monitor = null;
+                var settings = get_settings ();
+                if (settings != null) {
+                    settings.set_string ("watch-folder-path", "");
+                }
+                var toast = new Adw.Toast (_("Stopped watching folder"));
+                toast.timeout = 3;
+                toast_overlay.add_toast (toast);
+            }
+        }
+
+        private void restore_watched_folder () {
+            var settings = get_settings ();
+            if (settings == null) return;
+            var path = settings.get_string ("watch-folder-path");
+            if (path.length > 0 && FileUtils.test (path, FileTest.IS_DIR)) {
+                start_watching_folder (path);
+            }
+        }
+
+        private void start_watching_folder (string folder_path) {
+            // Stop any existing monitor
+            if (folder_monitor != null) {
+                folder_monitor.cancel ();
+                folder_monitor = null;
+            }
+
+            try {
+                var folder = File.new_for_path (folder_path);
+                folder_monitor = folder.monitor_directory (FileMonitorFlags.NONE, null);
+                folder_monitor.changed.connect (on_folder_changed);
+            } catch (Error e) {
+                warning ("Failed to watch folder: %s", e.message);
+            }
+        }
+
+        private bool is_supported_document (string filename) {
+            var lower = filename.down ();
+            return lower.has_suffix (".pdf") ||
+                   lower.has_suffix (".docx") ||
+                   lower.has_suffix (".odt") ||
+                   lower.has_suffix (".txt") ||
+                   lower.has_suffix (".epub") ||
+                   lower.has_suffix (".md");
+        }
+
+        private void on_folder_changed (File file, File? other_file, FileMonitorEvent event_type) {
+            if (event_type != FileMonitorEvent.CREATED) return;
+
+            var filename = file.get_basename ();
+            if (!is_supported_document (filename)) return;
+
+            var file_path = file.get_path ();
+            var toast = new Adw.Toast (_("New file detected: %s").printf (filename));
+            toast.button_label = _("Import");
+            toast.timeout = 10;
+            toast.button_clicked.connect (() => {
+                import_watched_file.begin (file_path);
+            });
+            toast_overlay.add_toast (toast);
+        }
+
+        private async void import_watched_file (string file_path) {
+            if (library.file_path.length == 0) {
+                var toast = new Adw.Toast (_("Open a library before importing"));
+                toast.timeout = 3;
+                toast_overlay.add_toast (toast);
+                return;
+            }
+
+            var doc = yield MetadataExtractor.extract (file_path);
+            library.add_document (doc);
+            var toast = new Adw.Toast (_("Imported: %s").printf (
+                doc.title.length > 0 ? doc.title : Path.get_basename (file_path)
+            ));
+            toast.timeout = 3;
+            toast_overlay.add_toast (toast);
+        }
+
+        // --- Linked Notes feature ---
+
+        private void on_open_notes () {
+            if (selected_document == null) return;
+            if (library.file_path.length == 0) return;
+
+            var lib_dir = get_library_dir ();
+            var notes_dir = Path.build_filename (lib_dir, ".pince-notes");
+            var notes_path = selected_document.get_notes_path (lib_dir);
+
+            // Create .pince-notes directory if needed
+            var dir = File.new_for_path (notes_dir);
+            if (!dir.query_exists ()) {
+                try {
+                    dir.make_directory_with_parents ();
+                } catch (Error e) {
+                    warning ("Failed to create notes directory: %s", e.message);
+                    return;
+                }
+            }
+
+            // Create the .md file with a header if it doesn't exist
+            var notes_file = File.new_for_path (notes_path);
+            if (!notes_file.query_exists ()) {
+                try {
+                    var header = "# %s\n\n".printf (selected_document.title);
+                    FileUtils.set_contents (notes_path, header);
+                } catch (Error e) {
+                    warning ("Failed to create notes file: %s", e.message);
+                    return;
+                }
+            }
+
+            // Open with the user's preferred editor via FileLauncher
+            var launcher = new Gtk.FileLauncher (notes_file);
+            launcher.launch.begin (this, null, (obj, res) => {
+                try {
+                    launcher.launch.end (res);
+                } catch (Error e) {
+                    warning ("Failed to open notes file: %s", e.message);
+                }
+            });
+        }
+    }
+}

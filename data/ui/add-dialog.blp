@@ -1,0 +1,84 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $PinceAddDialog: Adw.Dialog {
+  title: "Import Documents";
+  content-width: 600;
+  content-height: 500;
+
+  child: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {
+      show-end-title-buttons: false;
+      show-start-title-buttons: false;
+
+      [start]
+      Gtk.Button cancel_button {
+        label: "Cancel";
+      }
+
+      [end]
+      Gtk.Button add_all_fetch_button {
+        label: "Add All and Fetch DOIs";
+        tooltip-text: "Add all documents and fetch metadata from the web for those with DOIs (requires internet)";
+        sensitive: false;
+      }
+
+      [end]
+      Gtk.Button add_all_button {
+        label: "Add All";
+        sensitive: false;
+
+        styles [
+          "suggested-action",
+        ]
+      }
+    }
+
+    content: Gtk.Box {
+      orientation: vertical;
+
+      Adw.StatusPage progress_status {
+        icon-name: "emblem-synchronizing-symbolic";
+        title: "Extracting Metadata...";
+        description: "Scanning documents for DOIs and reading properties.";
+        vexpand: true;
+      }
+
+      Gtk.Box results_box {
+        orientation: vertical;
+        visible: false;
+        vexpand: true;
+
+        Gtk.Label summary_label {
+          margin-start: 16;
+          margin-end: 16;
+          margin-top: 8;
+          margin-bottom: 4;
+          xalign: 0;
+
+          styles [
+            "caption",
+            "dim-label",
+          ]
+        }
+
+        Gtk.ScrolledWindow {
+          vexpand: true;
+
+          Gtk.ListBox file_list {
+            selection-mode: none;
+            margin-start: 8;
+            margin-end: 8;
+            margin-top: 4;
+            margin-bottom: 8;
+
+            styles [
+              "boxed-list",
+            ]
+          }
+        }
+      }
+    };
+  };
+}

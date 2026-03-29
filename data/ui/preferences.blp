@@ -1,0 +1,41 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $PincePreferences: Adw.PreferencesDialog {
+  Adw.PreferencesPage {
+    title: "General";
+    icon-name: "preferences-system-symbolic";
+
+    Adw.PreferencesGroup {
+      title: "Library";
+      description: "Configure default library settings.";
+
+      Adw.ComboRow format_row {
+        title: "Default Library Format";
+        subtitle: "Format for new library files.";
+        model: Gtk.StringList {
+          strings [
+            "CSL JSON (.json)",
+            "BibTeX (.bib)",
+          ]
+        };
+      }
+    }
+
+    Adw.PreferencesGroup {
+      title: "Metadata";
+      description: "Configure metadata extraction behavior.";
+
+      Adw.SwitchRow auto_fetch_row {
+        title: "Auto-fetch from DOI";
+        subtitle: "Automatically query CrossRef when a DOI is found.";
+        active: true;
+      }
+
+      Adw.EntryRow crossref_email_row {
+        title: "CrossRef Contact Email";
+        text: "";
+      }
+    }
+  }
+}

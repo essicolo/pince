@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="pince">
+  <enum id="io.github.essicolo.Pince.LibraryFormat">
+    <value nick="csl-json" value="0"/>
+    <value nick="bibtex" value="1"/>
+  </enum>
+
+  <schema id="io.github.essicolo.Pince" path="/io/github/essicolo/Pince/">
+    <key name="default-format" enum="io.github.essicolo.Pince.LibraryFormat">
+      <default>'csl-json'</default>
+      <summary>Default library format</summary>
+      <description>The default format used when creating new library files.</description>
+    </key>
+    <key name="auto-fetch-doi" type="b">
+      <default>true</default>
+      <summary>Auto-fetch DOI metadata</summary>
+      <description>Automatically query CrossRef when a DOI is found in a document.</description>
+    </key>
+    <key name="crossref-email" type="s">
+      <default>''</default>
+      <summary>CrossRef contact email</summary>
+      <description>Email address sent to CrossRef API for polite pool access.</description>
+    </key>
+    <key name="last-library-path" type="s">
+      <default>''</default>
+      <summary>Last opened library path</summary>
+      <description>Path to the most recently opened library file.</description>
+    </key>
+    <key name="watch-folder-path" type="s">
+      <default>''</default>
+      <summary>Watched folder path</summary>
+      <description>Path to a folder being monitored for new documents to import.</description>
+    </key>
+  </schema>
+</schemalist>

@@ -1,0 +1,523 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $PinceWindow: Adw.ApplicationWindow {
+  default-width: 1200;
+  default-height: 700;
+  width-request: 600;
+  height-request: 400;
+  title: "Pince";
+
+  content: Adw.ToastOverlay toast_overlay {
+    child: Adw.ToolbarView {
+    top-bar-style: raised;
+
+    [top]
+    Adw.HeaderBar {
+      [start]
+      Gtk.MenuButton open_menu_button {
+        label: _("Open");
+        tooltip-text: "Open Library";
+        menu-model: open_menu;
+        direction: down;
+
+        styles [
+          "flat",
+        ]
+      }
+
+      [start]
+      Gtk.Button add_button {
+        icon-name: "list-add-symbolic";
+        tooltip-text: "Add Documents";
+      }
+
+      [title]
+      Adw.WindowTitle title_widget {
+        title: "Pince";
+        subtitle: "";
+      }
+
+      [end]
+      Gtk.MenuButton {
+        icon-name: "open-menu-symbolic";
+        menu-model: primary_menu;
+        tooltip-text: "Main Menu";
+        primary: true;
+      }
+
+      [end]
+      Gtk.ToggleButton sidebar_toggle {
+        icon-name: "sidebar-show-symbolic";
+        tooltip-text: "Toggle Tags Sidebar";
+        active: true;
+      }
+
+      [end]
+      Gtk.ToggleButton search_toggle {
+        icon-name: "system-search-symbolic";
+        tooltip-text: "Search (Ctrl+F)";
+      }
+
+      [end]
+      Gtk.DropDown sort_dropdown {
+        tooltip-text: "Sort by";
+        model: StringList {
+          strings [
+            "Title",
+            "Year",
+            "Author",
+            "Date Added",
+          ]
+        };
+      }
+    }
+
+    content: Gtk.Box {
+      orientation: vertical;
+
+      Gtk.SearchBar search_bar {
+        search-mode-enabled: bind search_toggle.active bidirectional;
+
+        Gtk.SearchEntry search_entry {
+          hexpand: true;
+          placeholder-text: "Search by title, author, tag...";
+        }
+      }
+
+      Gtk.Paned sidebar_paned {
+        vexpand: true;
+        orientation: horizontal;
+        position: 200;
+        shrink-start-child: true;
+        shrink-end-child: false;
+
+        start-child: Gtk.Box {
+          orientation: vertical;
+
+          styles [
+            "sidebar",
+          ]
+
+          Gtk.Box {
+            orientation: horizontal;
+            margin-start: 6;
+            margin-end: 6;
+            margin-top: 6;
+            margin-bottom: 2;
+            spacing: 2;
+            homogeneous: true;
+
+            Gtk.ToggleButton filter_starred {
+              icon-name: "starred-symbolic";
+              tooltip-text: "Starred";
+
+              styles [
+                "flat",
+              ]
+            }
+
+            Gtk.ToggleButton filter_unread {
+              icon-name: "mail-unread-symbolic";
+              tooltip-text: "Unread";
+
+              styles [
+                "flat",
+              ]
+            }
+
+            Gtk.ToggleButton filter_read {
+              icon-name: "object-select-symbolic";
+              tooltip-text: "Read";
+
+              styles [
+                "flat",
+              ]
+            }
+
+            Gtk.Button clear_tag_button {
+              icon-name: "edit-clear-symbolic";
+              tooltip-text: "Clear all filters";
+
+              styles [
+                "flat",
+              ]
+            }
+          }
+
+          Gtk.Separator {}
+
+          Gtk.ScrolledWindow {
+            vexpand: true;
+            hscrollbar-policy: never;
+
+            Gtk.ListBox tag_list {
+              selection-mode: single;
+
+              styles [
+                "navigation-sidebar",
+              ]
+            }
+          }
+        };
+
+        end-child: Gtk.Paned content_paned {
+          orientation: horizontal;
+          position: 600;
+          shrink-start-child: false;
+          shrink-end-child: false;
+
+          start-child: Gtk.Box {
+            orientation: vertical;
+            hexpand: true;
+
+            Gtk.ScrolledWindow {
+              vexpand: true;
+              hexpand: true;
+
+              Gtk.ListView document_list_view {
+                single-click-activate: false;
+              }
+            }
+
+            Gtk.ActionBar action_bar {
+              [center]
+              Gtk.Label status_label {
+                label: "No library open";
+
+                styles [
+                  "dim-label",
+                  "caption",
+                ]
+              }
+            }
+          };
+
+          end-child: Gtk.ScrolledWindow detail_scroll {
+            width-request: 320;
+            hscrollbar-policy: never;
+
+            Adw.Clamp {
+              maximum-size: 500;
+              margin-start: 12;
+              margin-end: 12;
+              margin-top: 12;
+              margin-bottom: 12;
+
+              Gtk.Box detail_panel {
+                orientation: vertical;
+                spacing: 12;
+
+                Adw.StatusPage detail_empty {
+                  icon-name: "emblem-documents-symbolic";
+                  title: "No Document Selected";
+                  description: "Select a document to view its details.";
+                  vexpand: true;
+                }
+
+                Gtk.Box detail_content {
+                  orientation: vertical;
+                  spacing: 12;
+                  visible: false;
+
+                  Gtk.Box {
+                    orientation: horizontal;
+                    spacing: 8;
+                    halign: start;
+                    margin-bottom: 4;
+
+                    Gtk.Button open_file_button {
+                      icon-name: "document-open-symbolic";
+                      tooltip-text: "Open File";
+                      label: "Open";
+
+                      styles [
+                        "suggested-action",
+                      ]
+                    }
+
+                    Gtk.Button open_folder_button {
+                      icon-name: "folder-open-symbolic";
+                      tooltip-text: "Open Containing Folder";
+                      label: "Folder";
+
+                      styles [
+                        "flat",
+                      ]
+                    }
+
+                    Gtk.ToggleButton read_toggle_button {
+                      icon-name: "object-select-symbolic";
+                      tooltip-text: "Mark as Read";
+
+                      styles [
+                        "flat",
+                      ]
+                    }
+
+                    Gtk.Box {
+                      hexpand: true;
+                    }
+
+                    Gtk.ToggleButton star_toggle_button {
+                      icon-name: "non-starred-symbolic";
+                      tooltip-text: "Toggle Star";
+
+                      styles [
+                        "flat",
+                      ]
+                    }
+
+                    Gtk.Button remove_button {
+                      icon-name: "user-trash-symbolic";
+                      tooltip-text: "Remove from Library";
+
+                      styles [
+                        "flat",
+                        "error",
+                      ]
+                    }
+                  }
+
+                  Gtk.Label path_label {
+                    xalign: 0;
+                    ellipsize: end;
+                    selectable: true;
+
+                    styles [
+                      "caption",
+                      "dim-label",
+                    ]
+                  }
+
+                  Adw.PreferencesGroup {
+                    title: "Metadata";
+
+                    Adw.EntryRow title_entry {
+                      title: "Title";
+                    }
+
+                    Adw.EntryRow authors_entry {
+                      title: "Authors (separated by \" and \")";
+                    }
+
+                    Adw.EntryRow year_entry {
+                      title: "Year";
+                    }
+
+                    Adw.EntryRow tags_entry {
+                      title: "Tags";
+                      text: "";
+
+                      [suffix]
+                      Gtk.Label {
+                        label: "use commas";
+                        valign: center;
+
+                        styles [
+                          "caption",
+                          "dim-label",
+                        ]
+                      }
+                    }
+                  }
+
+                  Adw.PreferencesGroup {
+                    title: "DOI Lookup";
+
+                    Adw.EntryRow doi_entry {
+                      title: "DOI";
+                    }
+
+                    Gtk.Box {
+                      orientation: horizontal;
+                      spacing: 8;
+                      margin-start: 12;
+                      margin-end: 12;
+                      margin-top: 4;
+                      margin-bottom: 4;
+
+                      Gtk.LinkButton doi_link_button {
+                        label: "Open DOI";
+                        visible: false;
+
+                        styles [
+                          "flat",
+                          "caption",
+                        ]
+                      }
+                    }
+
+                    Gtk.Box {
+                      orientation: horizontal;
+                      spacing: 8;
+                      margin-start: 12;
+                      margin-end: 12;
+                      margin-top: 4;
+                      margin-bottom: 4;
+
+                      Gtk.Button fetch_metadata_button {
+                        label: "Fetch Publication Info";
+                        tooltip-text: "If DOI is filled, fetch by DOI. Otherwise, search by title. Queries api.crossref.org (requires internet).";
+                        hexpand: true;
+
+                        styles [
+                          "suggested-action",
+                        ]
+                      }
+
+                      Gtk.Spinner fetch_spinner {
+                        visible: false;
+                      }
+                    }
+
+                    Gtk.Label fetch_status_label {
+                      xalign: 0;
+                      margin-start: 12;
+                      margin-bottom: 4;
+                      visible: false;
+
+                      styles [
+                        "caption",
+                      ]
+                    }
+                  }
+
+                  Adw.PreferencesGroup {
+                    title: "Publication";
+
+                    Adw.EntryRow journal_entry {
+                      title: "Journal / Source";
+                    }
+
+                    Adw.EntryRow volume_entry {
+                      title: "Volume";
+                    }
+
+                    Adw.EntryRow pages_entry {
+                      title: "Pages";
+                    }
+
+                    Adw.EntryRow publisher_entry {
+                      title: "Publisher";
+                    }
+                  }
+
+                  Adw.PreferencesGroup {
+                    title: "Notes";
+
+                    Gtk.TextView note_view {
+                      top-margin: 8;
+                      bottom-margin: 8;
+                      left-margin: 8;
+                      right-margin: 8;
+                      wrap-mode: word_char;
+                      height-request: 100;
+
+                      styles [
+                        "card",
+                      ]
+                    }
+
+                    Gtk.Button open_notes_button {
+                      label: _("Open in Editor");
+                      icon-name: "text-editor-symbolic";
+                      halign: start;
+                      margin-top: 4;
+
+                      styles [
+                        "flat",
+                      ]
+                    }
+                  }
+
+                  Adw.PreferencesGroup {
+                    title: "Abstract";
+
+                    Gtk.Label abstract_label {
+                      wrap: true;
+                      xalign: 0;
+                      selectable: true;
+
+                      styles [
+                        "body",
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          };
+        };
+      }
+    };
+  };
+  };
+}
+
+menu open_menu {
+  section {
+    item {
+      label: _("Open Library...");
+      action: "app.open-library";
+    }
+
+    item {
+      label: _("New Library...");
+      action: "app.new-library";
+    }
+
+    item {
+      label: _("Recent Libraries...");
+      action: "win.recent-libraries";
+    }
+  }
+}
+
+menu primary_menu {
+  section {
+    item {
+      label: _("Find Duplicates...");
+      action: "win.find-duplicates";
+    }
+
+    item {
+      label: _("Merge Library...");
+      action: "win.merge-library";
+    }
+
+    item {
+      label: _("Library Properties...");
+      action: "win.library-properties";
+    }
+
+    item {
+      label: _("Statistics...");
+      action: "win.show-stats";
+    }
+  }
+
+  section {
+    item {
+      label: _("Watch Folder...");
+      action: "win.watch-folder";
+    }
+
+    item {
+      label: _("Stop Watching");
+      action: "win.stop-watching";
+    }
+  }
+
+  section {
+    item {
+      label: _("Preferences");
+      action: "app.preferences";
+    }
+
+    item {
+      label: _("About Pince");
+      action: "app.about";
+    }
+  }
+}

@@ -1,0 +1,422 @@
+# French translation for Pince
+# Copyright (C) 2026 Pince Contributors
+# This file is distributed under the same license as the pince package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: pince 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/essicolo/pince/issues\n"
+"POT-Creation-Date: 2026-03-28 00:00+0000\n"
+"PO-Revision-Date: 2026-03-28 00:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: French\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: src/application.vala:60
+msgid "A lightweight personal document library"
+msgstr "Une bibliothèque documentaire personnelle et légère"
+
+#: src/window.vala
+msgid "No Documents"
+msgstr "Aucun document"
+
+#: src/window.vala
+msgid "Open a library file or drag documents here to get started."
+msgstr "Ouvrez un fichier de bibliothèque ou glissez des documents ici pour commencer."
+
+#: src/window.vala
+msgid "No Library Open"
+msgstr "Aucune bibliothèque ouverte"
+
+#: src/window.vala
+msgid "Create or open a library before adding documents."
+msgstr "Créez ou ouvrez une bibliothèque avant d'ajouter des documents."
+
+#: src/window.vala
+msgid "Cancel"
+msgstr "Annuler"
+
+#: src/window.vala
+msgid "Create Library"
+msgstr "Créer une bibliothèque"
+
+#: src/window.vala
+msgid "CSL JSON (.json)"
+msgstr "CSL JSON (.json)"
+
+#: src/window.vala
+msgid "BibTeX (.bib)"
+msgstr "BibTeX (.bib)"
+
+#: src/window.vala
+msgid "Add Documents"
+msgstr "Ajouter des documents"
+
+#: src/window.vala
+msgid "Documents"
+msgstr "Documents"
+
+#: src/window.vala
+msgid "All Files"
+msgstr "Tous les fichiers"
+
+#: src/window.vala
+msgid "(No abstract)"
+msgstr "(Pas de résumé)"
+
+#: src/window.vala
+msgid "Enter a DOI first."
+msgstr "Saisissez d'abord un DOI."
+
+#: src/window.vala
+msgid "Sending DOI to api.crossref.org..."
+msgstr "Envoi du DOI à api.crossref.org..."
+
+#: src/window.vala
+msgid "title"
+msgstr "titre"
+
+#: src/window.vala
+msgid "authors"
+msgstr "auteurs"
+
+#: src/window.vala
+msgid "year"
+msgstr "année"
+
+#: src/window.vala
+msgid "journal"
+msgstr "revue"
+
+#: src/window.vala
+msgid "abstract"
+msgstr "résumé"
+
+#: src/window.vala
+msgid "publisher"
+msgstr "éditeur"
+
+#: src/window.vala
+#, c-format
+msgid "Fetched: %s"
+msgstr "Récupéré : %s"
+
+#: src/window.vala
+#, c-format
+msgid "Fetch failed: %s"
+msgstr "Échec de la récupération : %s"
+
+#: src/window.vala
+msgid "Title too short to search."
+msgstr "Titre trop court pour la recherche."
+
+#: src/window.vala
+msgid "Searching api.crossref.org by title..."
+msgstr "Recherche par titre sur api.crossref.org..."
+
+#: src/window.vala
+#, c-format
+msgid "Found: %s (DOI: %s)"
+msgstr "Trouvé : %s (DOI : %s)"
+
+#: src/window.vala
+msgid "No matching DOI found for this title."
+msgstr "Aucun DOI correspondant trouvé pour ce titre."
+
+#: src/window.vala
+#, c-format
+msgid "Search failed: %s"
+msgstr "Échec de la recherche : %s"
+
+#: src/window.vala
+msgid "No Duplicates Found"
+msgstr "Aucun doublon trouvé"
+
+#: src/window.vala
+msgid "No duplicate documents were found in the library."
+msgstr "Aucun document en double n'a été trouvé dans la bibliothèque."
+
+#: src/window.vala
+msgid "OK"
+msgstr "OK"
+
+#: src/window.vala
+#, c-format
+msgid "%d Duplicate Group Found"
+msgid_plural "%d Duplicate Groups Found"
+msgstr[0] "%d groupe de doublons trouvé"
+msgstr[1] "%d groupes de doublons trouvés"
+
+#: src/window.vala
+#, c-format
+msgid "%d documents appear to be duplicates:\n\n%s\nRemove duplicates? (Keeps the first entry in each group.)"
+msgstr "%d documents semblent être des doublons :\n\n%s\nSupprimer les doublons ? (Conserve la première entrée de chaque groupe.)"
+
+#: src/window.vala
+msgid "Keep All"
+msgstr "Tout garder"
+
+#: src/window.vala
+msgid "Remove Duplicates"
+msgstr "Supprimer les doublons"
+
+#: src/window.vala
+msgid "Open File"
+msgstr "Ouvrir le fichier"
+
+#: src/window.vala
+msgid "Open Folder"
+msgstr "Ouvrir le dossier"
+
+#: src/window.vala
+msgid "Remove"
+msgstr "Supprimer"
+
+#: src/window.vala
+msgid "No library open"
+msgstr "Aucune bibliothèque ouverte"
+
+#: src/window.vala
+#, c-format
+msgid "%s — %d documents"
+msgstr "%s — %d documents"
+
+#: src/window.vala
+msgid "Error Opening Library"
+msgstr "Erreur à l'ouverture de la bibliothèque"
+
+#: src/window.vala
+msgid "Open Library"
+msgstr "Ouvrir une bibliothèque"
+
+#: src/window.vala
+msgid "Library Files"
+msgstr "Fichiers de bibliothèque"
+
+#: src/window.vala
+msgid "New Library"
+msgstr "Nouvelle bibliothèque"
+
+#: src/add-dialog.vala
+#, c-format
+msgid "%d documents, %d with DOIs"
+msgstr "%d documents, %d avec DOI"
+
+#: src/add-dialog.vala
+#, c-format
+msgid ", %d possible duplicates"
+msgstr ", %d doublons possibles"
+
+#: src/add-dialog.vala
+#, c-format
+msgid "Add All + Fetch %d DOIs"
+msgstr "Tout ajouter + récupérer %d DOI"
+
+#: src/add-dialog.vala
+#, c-format
+msgid "Fetch metadata from api.crossref.org for %d documents with DOIs, then add all. Only the DOI string is sent (requires internet)."
+msgstr "Récupérer les métadonnées depuis api.crossref.org pour %d documents avec DOI, puis tout ajouter. Seul le DOI est envoyé (connexion internet requise)."
+
+#: src/add-dialog.vala
+msgid "Add All + Fetch DOIs"
+msgstr "Tout ajouter + récupérer les DOI"
+
+#: src/add-dialog.vala
+msgid "Enter DOIs manually in each row below, then click to fetch metadata from api.crossref.org and add all (requires internet)."
+msgstr "Saisissez les DOI manuellement dans chaque ligne ci-dessous, puis cliquez pour récupérer les métadonnées depuis api.crossref.org et tout ajouter (connexion internet requise)."
+
+#: src/add-dialog.vala
+#, c-format
+msgid "Possible duplicate of: %s"
+msgstr "Doublon possible de : %s"
+
+#: src/add-dialog.vala
+msgid "Title"
+msgstr "Titre"
+
+#: src/add-dialog.vala
+msgid "Authors (separated by \" and \")"
+msgstr "Auteurs (séparés par « and »)"
+
+#: src/add-dialog.vala
+msgid "Year"
+msgstr "Année"
+
+#: src/add-dialog.vala
+msgid "Tags (comma-separated)"
+msgstr "Étiquettes (séparées par des virgules)"
+
+#: src/add-dialog.vala
+msgid "Fetching..."
+msgstr "Récupération..."
+
+#: data/ui/window.blp
+msgid "Open Library..."
+msgstr "Ouvrir une bibliothèque..."
+
+#: data/ui/window.blp
+msgid "New Library..."
+msgstr "Nouvelle bibliothèque..."
+
+#: data/ui/window.blp
+msgid "Find Duplicates..."
+msgstr "Chercher les doublons..."
+
+#: data/ui/window.blp
+msgid "Preferences"
+msgstr "Préférences"
+
+#: data/ui/window.blp
+msgid "About Pince"
+msgstr "À propos de Pince"
+
+#: data/io.github.essicolo.Pince.desktop
+msgid "Lightweight personal document library"
+msgstr "Bibliothèque documentaire personnelle et légère"
+
+#: src/window.vala — Sort, Stars, Reading Status
+msgid "Reading"
+msgstr "En lecture"
+
+msgid "Read"
+msgstr "Lu"
+
+msgid "Document removed"
+msgstr "Document supprimé"
+
+msgid "Undo"
+msgstr "Annuler"
+
+#: src/window.vala — Statistics
+msgid "Library Statistics"
+msgstr "Statistiques de la bibliothèque"
+
+msgid "No documents in the library."
+msgstr "Aucun document dans la bibliothèque."
+
+#, c-format
+msgid "Total documents: %d\n"
+msgstr "Documents au total : %d\n"
+
+#, c-format
+msgid "\nDocuments per filetype:\n"
+msgstr "\nDocuments par type de fichier :\n"
+
+#, c-format
+msgid "\nTop years:\n"
+msgstr "\nAnnées principales :\n"
+
+#, c-format
+msgid "\nTop tags:\n"
+msgstr "\nÉtiquettes principales :\n"
+
+#, c-format
+msgid "\nWith DOI: %d\nWithout DOI: %d\n"
+msgstr "\nAvec DOI : %d\nSans DOI : %d\n"
+
+#: src/window.vala — Merge Library
+msgid "Select Library to Merge"
+msgstr "Sélectionner une bibliothèque à fusionner"
+
+msgid "Open or create a library before merging."
+msgstr "Ouvrez ou créez une bibliothèque avant de fusionner."
+
+msgid "Error Loading Library"
+msgstr "Erreur au chargement de la bibliothèque"
+
+#, c-format
+msgid "Merged %d documents, %d duplicates skipped"
+msgstr "%d documents fusionnés, %d doublons ignorés"
+
+msgid "Merge Complete"
+msgstr "Fusion terminée"
+
+#, c-format
+msgid "Merged %d documents, %d duplicates skipped."
+msgstr "%d documents fusionnés, %d doublons ignorés."
+
+#: src/window.vala — Context Menu
+msgid "Copy Citation (APA)"
+msgstr "Copier la citation (APA)"
+
+msgid "Copy Citation (BibTeX)"
+msgstr "Copier la citation (BibTeX)"
+
+#: data/ui/window.blp — Menu Items
+msgid "Merge Library..."
+msgstr "Fusionner une bibliothèque..."
+
+msgid "Statistics..."
+msgstr "Statistiques..."
+
+msgid "Library Properties..."
+msgstr "Propriétés de la bibliothèque..."
+
+#: src/window.vala — Library Properties dialog
+msgid "Library Properties"
+msgstr "Propriétés de la bibliothèque"
+
+msgid "Open or create a library first."
+msgstr "Ouvrez ou créez d'abord une bibliothèque."
+
+msgid "Close"
+msgstr "Fermer"
+
+msgid "Save"
+msgstr "Enregistrer"
+
+msgid "File"
+msgstr "Fichier"
+
+msgid "Path"
+msgstr "Chemin"
+
+msgid "Format"
+msgstr "Format"
+
+msgid "Metadata"
+msgstr "Métadonnées"
+
+msgid "Author"
+msgstr "Auteur"
+
+msgid "Created"
+msgstr "Créé"
+
+msgid "Unknown"
+msgstr "Inconnu"
+
+msgid "Last Updated"
+msgstr "Dernière mise à jour"
+
+msgid "Never"
+msgstr "Jamais"
+
+msgid "Pince Version"
+msgstr "Version de Pince"
+
+#: src/window.vala — Batch actions
+msgid "Mark as Unread"
+msgstr "Marquer comme non lu"
+
+msgid "Mark as Reading"
+msgstr "Marquer comme en lecture"
+
+msgid "Mark as Read"
+msgstr "Marquer comme lu"
+
+msgid "Toggle Star"
+msgstr "Basculer l'étoile"
+
+msgid "Select All"
+msgstr "Tout sélectionner"
+
+#, c-format
+msgid "Removed %d document"
+msgid_plural "Removed %d documents"
+msgstr[0] "%d document supprimé"
+msgstr[1] "%d documents supprimés"

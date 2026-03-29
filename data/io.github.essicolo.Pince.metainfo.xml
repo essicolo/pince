@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.essicolo.Pince</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <name>Pince</name>
+  <summary>Lightweight personal document library</summary>
+  <description>
+    <p>
+      Pince is a lightweight personal document library that indexes your
+      existing documents with metadata and tags. It never moves or copies
+      your files — it simply maintains a portable index backed by standard
+      CSL JSON or BibTeX files.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Automatic metadata extraction from PDFs (DOI, title, authors)</li>
+      <li>CrossRef DOI lookup for complete bibliographic data</li>
+      <li>Tag-based organization with filtering</li>
+      <li>Full-text search across titles, authors, and tags</li>
+      <li>Drag-and-drop to add documents</li>
+      <li>Portable library files (CSL JSON or BibTeX)</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">io.github.essicolo.Pince.desktop</launchable>
+
+  <url type="homepage">https://github.com/essicolo/pince</url>
+  <url type="bugtracker">https://github.com/essicolo/pince/issues</url>
+
+  <developer id="io.github.essicolo">
+    <name>Pince Contributors</name>
+  </developer>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.1.0" date="2026-03-27">
+      <description>
+        <p>Initial release.</p>
+      </description>
+    </release>
+  </releases>
+
+  <requires>
+    <display_length compare="ge">600</display_length>
+  </requires>
+
+  <recommends>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </recommends>
+</component>

@@ -1,0 +1,280 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026 Pince Contributors
+# This file is distributed under the same license as the pince package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: pince 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/essicolo/pince/issues\n"
+"POT-Creation-Date: 2026-03-28 00:00+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: src/application.vala:60
+msgid "A lightweight personal document library"
+msgstr ""
+
+#: src/window.vala
+msgid "No Documents"
+msgstr ""
+
+#: src/window.vala
+msgid "Open a library file or drag documents here to get started."
+msgstr ""
+
+#: src/window.vala
+msgid "No Library Open"
+msgstr ""
+
+#: src/window.vala
+msgid "Create or open a library before adding documents."
+msgstr ""
+
+#: src/window.vala
+msgid "Cancel"
+msgstr ""
+
+#: src/window.vala
+msgid "Create Library"
+msgstr ""
+
+#: src/window.vala
+msgid "CSL JSON (.json)"
+msgstr ""
+
+#: src/window.vala
+msgid "BibTeX (.bib)"
+msgstr ""
+
+#: src/window.vala
+msgid "Add Documents"
+msgstr ""
+
+#: src/window.vala
+msgid "Documents"
+msgstr ""
+
+#: src/window.vala
+msgid "All Files"
+msgstr ""
+
+#: src/window.vala
+msgid "(No abstract)"
+msgstr ""
+
+#: src/window.vala
+msgid "Enter a DOI first."
+msgstr ""
+
+#: src/window.vala
+msgid "Sending DOI to api.crossref.org..."
+msgstr ""
+
+#: src/window.vala
+msgid "title"
+msgstr ""
+
+#: src/window.vala
+msgid "authors"
+msgstr ""
+
+#: src/window.vala
+msgid "year"
+msgstr ""
+
+#: src/window.vala
+msgid "journal"
+msgstr ""
+
+#: src/window.vala
+msgid "abstract"
+msgstr ""
+
+#: src/window.vala
+msgid "publisher"
+msgstr ""
+
+#: src/window.vala
+#, c-format
+msgid "Fetched: %s"
+msgstr ""
+
+#: src/window.vala
+#, c-format
+msgid "Fetch failed: %s"
+msgstr ""
+
+#: src/window.vala
+msgid "Title too short to search."
+msgstr ""
+
+#: src/window.vala
+msgid "Searching api.crossref.org by title..."
+msgstr ""
+
+#: src/window.vala
+#, c-format
+msgid "Found: %s (DOI: %s)"
+msgstr ""
+
+#: src/window.vala
+msgid "No matching DOI found for this title."
+msgstr ""
+
+#: src/window.vala
+#, c-format
+msgid "Search failed: %s"
+msgstr ""
+
+#: src/window.vala
+msgid "No Duplicates Found"
+msgstr ""
+
+#: src/window.vala
+msgid "No duplicate documents were found in the library."
+msgstr ""
+
+#: src/window.vala
+msgid "OK"
+msgstr ""
+
+#: src/window.vala
+#, c-format
+msgid "%d Duplicate Group Found"
+msgid_plural "%d Duplicate Groups Found"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/window.vala
+#, c-format
+msgid "%d documents appear to be duplicates:\n\n%s\nRemove duplicates? (Keeps the first entry in each group.)"
+msgstr ""
+
+#: src/window.vala
+msgid "Keep All"
+msgstr ""
+
+#: src/window.vala
+msgid "Remove Duplicates"
+msgstr ""
+
+#: src/window.vala
+msgid "Open File"
+msgstr ""
+
+#: src/window.vala
+msgid "Open Folder"
+msgstr ""
+
+#: src/window.vala
+msgid "Remove"
+msgstr ""
+
+#: src/window.vala
+msgid "No library open"
+msgstr ""
+
+#: src/window.vala
+#, c-format
+msgid "%s — %d documents"
+msgstr ""
+
+#: src/window.vala
+msgid "Error Opening Library"
+msgstr ""
+
+#: src/window.vala
+msgid "Open Library"
+msgstr ""
+
+#: src/window.vala
+msgid "Library Files"
+msgstr ""
+
+#: src/window.vala
+msgid "New Library"
+msgstr ""
+
+#: src/add-dialog.vala
+#, c-format
+msgid "%d documents, %d with DOIs"
+msgstr ""
+
+#: src/add-dialog.vala
+#, c-format
+msgid ", %d possible duplicates"
+msgstr ""
+
+#: src/add-dialog.vala
+#, c-format
+msgid "Add All + Fetch %d DOIs"
+msgstr ""
+
+#: src/add-dialog.vala
+#, c-format
+msgid "Fetch metadata from api.crossref.org for %d documents with DOIs, then add all. Only the DOI string is sent (requires internet)."
+msgstr ""
+
+#: src/add-dialog.vala
+msgid "Add All + Fetch DOIs"
+msgstr ""
+
+#: src/add-dialog.vala
+msgid "Enter DOIs manually in each row below, then click to fetch metadata from api.crossref.org and add all (requires internet)."
+msgstr ""
+
+#: src/add-dialog.vala
+#, c-format
+msgid "Possible duplicate of: %s"
+msgstr ""
+
+#: src/add-dialog.vala
+msgid "Title"
+msgstr ""
+
+#: src/add-dialog.vala
+msgid "Authors (separated by \" and \")"
+msgstr ""
+
+#: src/add-dialog.vala
+msgid "Year"
+msgstr ""
+
+#: src/add-dialog.vala
+msgid "Tags (comma-separated)"
+msgstr ""
+
+#: src/add-dialog.vala
+msgid "Fetching..."
+msgstr ""
+
+#: data/ui/window.blp
+msgid "Open Library..."
+msgstr ""
+
+#: data/ui/window.blp
+msgid "New Library..."
+msgstr ""
+
+#: data/ui/window.blp
+msgid "Find Duplicates..."
+msgstr ""
+
+#: data/ui/window.blp
+msgid "Preferences"
+msgstr ""
+
+#: data/ui/window.blp
+msgid "About Pince"
+msgstr ""
+
+#: data/io.github.essicolo.Pince.desktop
+msgid "Lightweight personal document library"
+msgstr ""

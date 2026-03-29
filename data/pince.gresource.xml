@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/io/github/essicolo/Pince">
+    <file preprocess="xml-stripblanks">window.ui</file>
+    <file preprocess="xml-stripblanks">document-row.ui</file>
+    <file preprocess="xml-stripblanks">add-dialog.ui</file>
+    <file preprocess="xml-stripblanks">preferences.ui</file>
+    <file>style.css</file>
+  </gresource>
+  <gresource prefix="/io/github/essicolo/Pince/icons/scalable/apps">
+    <file alias="io.github.essicolo.Pince.svg">icons/hicolor/scalable/apps/io.github.essicolo.Pince.svg</file>
+  </gresource>
+</gresources>
