@@ -246,6 +246,26 @@ template $PinceWindow: Adw.ApplicationWindow {
                       ]
                     }
 
+                    Gtk.Button move_file_button {
+                      icon-name: "folder-move-symbolic";
+                      tooltip-text: "Move file(s) to another folder";
+                      label: "Move";
+
+                      styles [
+                        "flat",
+                      ]
+                    }
+
+                    Gtk.Button rename_file_button {
+                      icon-name: "document-edit-symbolic";
+                      tooltip-text: "Rename file(s) to Author-Year format";
+                      label: "Rename";
+
+                      styles [
+                        "flat",
+                      ]
+                    }
+
                     Gtk.ToggleButton read_toggle_button {
                       icon-name: "object-select-symbolic";
                       tooltip-text: "Mark as Read";

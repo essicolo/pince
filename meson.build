@@ -71,6 +71,7 @@ sources = files(
   'src/library-csl-json.vala',
   'src/metadata-extractor.vala',
   'src/crossref-client.vala',
+  'src/openalex-client.vala',
   'src/document-row.vala',
   'src/tag-row.vala',
   'src/add-dialog.vala',
@@ -133,6 +134,7 @@ test_sources = files(
   'src/library-bibtex.vala',
   'src/metadata-extractor.vala',
   'src/crossref-client.vala',
+  'src/openalex-client.vala',
   'src/utils.vala',
   'src/citation-formatter.vala',
   'src/recent-libraries.vala',
@@ -156,6 +158,40 @@ test_exe = executable(
 
 test('library-tests', test_exe,
   workdir: meson.current_source_dir(),
+)
+
+# PDF title extraction test
+pdf_test_exe = executable(
+  'pince-pdf-title-test',
+  'tests/test-pdf-title.vala',
+  test_sources,
+  dependencies: [
+    gtk4_dep,
+    adw_dep,
+    json_dep,
+    soup_dep,
+    poppler_dep,
+    gio_dep,
+    gee_dep,
+  ],
+  install: false,
+)
+
+# Live fetch tests (require network, not run by default)
+fetch_test_exe = executable(
+  'pince-fetch-test',
+  'tests/test-fetch-live.vala',
+  test_sources,
+  dependencies: [
+    gtk4_dep,
+    adw_dep,
+    json_dep,
+    soup_dep,
+    poppler_dep,
+    gio_dep,
+    gee_dep,
+  ],
+  install: false,
 )
 
 gnome.post_install(

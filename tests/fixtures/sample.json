@@ -1,69 +1,170 @@
-[
-  {
-    "id": "sample001",
-    "type": "article-journal",
-    "title": "Deep Residual Learning for Image Recognition",
-    "author": [
-      {"family": "He", "given": "Kaiming"},
-      {"family": "Zhang", "given": "Xiangyu"},
-      {"family": "Ren", "given": "Shaoqing"},
-      {"family": "Sun", "given": "Jian"}
-    ],
-    "issued": {"date-parts": [[2016]]},
-    "DOI": "10.1109/CVPR.2016.90",
-    "abstract": "Deeper neural networks are more difficult to train. We present a residual learning framework to ease the training of networks that are substantially deeper than those used previously.",
-    "keyword": "deep learning, computer vision",
-    "pince-path": "/home/user/Documents/papers/he2016deep.pdf",
-    "pince-filetype": "pdf",
-    "pince-tags": ["deep learning", "computer vision"]
+{
+  "pince" : {
+    "version" : "0.1.0",
+    "author" : "Essi Parent",
+    "created" : "2026-03-30T12:52:28.563186Z",
+    "updated" : "2026-03-30T12:52:28.569446Z"
   },
-  {
-    "id": "sample002",
-    "type": "article-journal",
-    "title": "Attention Is All You Need",
-    "author": [
-      {"family": "Vaswani", "given": "Ashish"},
-      {"family": "Shazeer", "given": "Noam"},
-      {"family": "Parmar", "given": "Niki"},
-      {"family": "Uszkoreit", "given": "Jakob"},
-      {"family": "Jones", "given": "Llion"},
-      {"family": "Gomez", "given": "Aidan N."},
-      {"family": "Kaiser", "given": "Lukasz"},
-      {"family": "Polosukhin", "given": "Illia"}
-    ],
-    "issued": {"date-parts": [[2017]]},
-    "DOI": "10.48550/arXiv.1706.03762",
-    "abstract": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms.",
-    "keyword": "transformers, NLP, deep learning",
-    "pince-path": "/home/user/Documents/papers/vaswani2017attention.pdf",
-    "pince-filetype": "pdf",
-    "pince-tags": ["transformers", "NLP", "deep learning"]
-  },
-  {
-    "id": "sample003",
-    "type": "book",
-    "title": "The Art of Computer Programming",
-    "author": [
-      {"family": "Knuth", "given": "Donald E."}
-    ],
-    "issued": {"date-parts": [[1997]]},
-    "note": "Classic reference, volume 1 covers fundamental algorithms.",
-    "pince-path": "/home/user/Documents/books/knuth_taocp_v1.pdf",
-    "pince-filetype": "pdf",
-    "pince-tags": ["algorithms", "reference"]
-  },
-  {
-    "id": "sample004",
-    "type": "report",
-    "title": "Soil Carbon Sequestration in Agricultural Systems",
-    "author": [
-      {"family": "Smith", "given": "Pete"},
-      {"family": "Martino", "given": "Daniel"}
-    ],
-    "issued": {"date-parts": [[2020]]},
-    "DOI": "10.1234/example.report",
-    "pince-path": "reports/soil_carbon_2020.docx",
-    "pince-filetype": "docx",
-    "pince-tags": ["soil science", "carbon", "agriculture"]
-  }
-]
+  "items" : [
+    {
+      "id" : "sample001",
+      "type" : "article-journal",
+      "title" : "Deep Residual Learning for Image Recognition",
+      "DOI" : "10.1109/CVPR.2016.90",
+      "abstract" : "Deeper neural networks are more difficult to train. We present a residual learning framework to ease the training of networks that are substantially deeper than those used previously.",
+      "author" : [
+        {
+          "family" : "He",
+          "given" : "Kaiming"
+        },
+        {
+          "family" : "Zhang",
+          "given" : "Xiangyu"
+        },
+        {
+          "family" : "Ren",
+          "given" : "Shaoqing"
+        },
+        {
+          "family" : "Sun",
+          "given" : "Jian"
+        }
+      ],
+      "issued" : {
+        "date-parts" : [
+          [
+            2016
+          ]
+        ]
+      },
+      "keyword" : "deep learning, computer vision",
+      "pince-tags" : [
+        "deep learning",
+        "computer vision"
+      ],
+      "pince-path" : "/home/user/Documents/papers/he2016deep.pdf",
+      "pince-filetype" : "pdf",
+      "pince-starred" : false,
+      "pince-reading-status" : "unread"
+    },
+    {
+      "id" : "sample002",
+      "type" : "article-journal",
+      "title" : "Attention Is All You Need",
+      "DOI" : "10.48550/arXiv.1706.03762",
+      "abstract" : "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms.",
+      "author" : [
+        {
+          "family" : "Vaswani",
+          "given" : "Ashish"
+        },
+        {
+          "family" : "Shazeer",
+          "given" : "Noam"
+        },
+        {
+          "family" : "Parmar",
+          "given" : "Niki"
+        },
+        {
+          "family" : "Uszkoreit",
+          "given" : "Jakob"
+        },
+        {
+          "family" : "Jones",
+          "given" : "Llion"
+        },
+        {
+          "family" : "Gomez",
+          "given" : "Aidan N."
+        },
+        {
+          "family" : "Kaiser",
+          "given" : "Lukasz"
+        },
+        {
+          "family" : "Polosukhin",
+          "given" : "Illia"
+        }
+      ],
+      "issued" : {
+        "date-parts" : [
+          [
+            2017
+          ]
+        ]
+      },
+      "keyword" : "transformers, NLP, deep learning",
+      "pince-tags" : [
+        "transformers",
+        "NLP",
+        "deep learning"
+      ],
+      "pince-path" : "/home/user/Documents/papers/vaswani2017attention.pdf",
+      "pince-filetype" : "pdf",
+      "pince-starred" : false,
+      "pince-reading-status" : "unread"
+    },
+    {
+      "id" : "sample003",
+      "type" : "book",
+      "title" : "The Art of Computer Programming",
+      "note" : "Classic reference, volume 1 covers fundamental algorithms.",
+      "author" : [
+        {
+          "family" : "Knuth",
+          "given" : "Donald E."
+        }
+      ],
+      "issued" : {
+        "date-parts" : [
+          [
+            1997
+          ]
+        ]
+      },
+      "keyword" : "algorithms, reference",
+      "pince-tags" : [
+        "algorithms",
+        "reference"
+      ],
+      "pince-path" : "/home/user/Documents/books/knuth_taocp_v1.pdf",
+      "pince-filetype" : "pdf",
+      "pince-starred" : false,
+      "pince-reading-status" : "unread"
+    },
+    {
+      "id" : "sample004",
+      "type" : "report",
+      "title" : "Soil Carbon Sequestration in Agricultural Systems",
+      "DOI" : "10.1234/example.report",
+      "author" : [
+        {
+          "family" : "Smith",
+          "given" : "Pete"
+        },
+        {
+          "family" : "Martino",
+          "given" : "Daniel"
+        }
+      ],
+      "issued" : {
+        "date-parts" : [
+          [
+            2020
+          ]
+        ]
+      },
+      "keyword" : "soil science, carbon, agriculture",
+      "pince-tags" : [
+        "soil science",
+        "carbon",
+        "agriculture"
+      ],
+      "pince-path" : "reports/soil_carbon_2020.docx",
+      "pince-filetype" : "docx",
+      "pince-starred" : false,
+      "pince-reading-status" : "unread"
+    }
+  ]
+}

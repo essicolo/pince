@@ -27,6 +27,7 @@ namespace Pince {
             this.set_accels_for_action ("app.new-library", { "<primary>n" });
             this.set_accels_for_action ("win.toggle-search", { "<primary>f" });
             this.set_accels_for_action ("win.select-all", { "<primary>a" });
+            this.set_accels_for_action ("win.remove-document", { "Delete" });
 
             // Register bundled icon so GTK finds it by app ID
             Gtk.IconTheme.get_for_display (Gdk.Display.get_default ())

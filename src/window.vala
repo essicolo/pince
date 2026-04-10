@@ -41,6 +41,8 @@ namespace Pince {
         [GtkChild] unowned Gtk.LinkButton doi_link_button;
         [GtkChild] unowned Adw.ToastOverlay toast_overlay;
         [GtkChild] unowned Gtk.Button open_notes_button;
+        [GtkChild] unowned Gtk.Button move_file_button;
+        [GtkChild] unowned Gtk.Button rename_file_button;
 
         private Library library;
         private Document? selected_document = null;
@@ -72,6 +74,8 @@ namespace Pince {
             open_file_button.clicked.connect (on_open_file);
             open_folder_button.clicked.connect (on_open_folder);
             remove_button.clicked.connect (on_remove_document);
+            move_file_button.clicked.connect (on_move_files);
+            rename_file_button.clicked.connect (on_rename_files);
 
             title_entry.changed.connect (on_detail_changed);
             authors_entry.changed.connect (on_detail_changed);
@@ -184,6 +188,12 @@ namespace Pince {
                 }
             });
             this.add_action (undo_remove_action);
+
+            var remove_action = new SimpleAction ("remove-document", null);
+            remove_action.activate.connect (() => {
+                on_remove_document ();
+            });
+            this.add_action (remove_action);
 
             var select_all_action = new SimpleAction ("select-all", null);
             select_all_action.activate.connect (() => {
@@ -477,6 +487,11 @@ namespace Pince {
             menu.append (_("Open File"), "row.open-file");
             menu.append (_("Open Folder"), "row.open-folder");
 
+            var file_ops_section = new GLib.Menu ();
+            file_ops_section.append (_("Move to..."), "row.move-files");
+            file_ops_section.append (_("Rename (Author-Year)"), "row.rename-files");
+            menu.append_section (null, file_ops_section);
+
             var status_section = new GLib.Menu ();
             status_section.append (_("Mark as Unread"), "row.mark-unread");
             status_section.append (_("Mark as Read"), "row.mark-read");
@@ -581,6 +596,18 @@ namespace Pince {
             });
             action_group.add_action (select_all_action);
 
+            var move_action = new SimpleAction ("move-files", null);
+            move_action.activate.connect (() => {
+                on_move_files ();
+            });
+            action_group.add_action (move_action);
+
+            var rename_action = new SimpleAction ("rename-files", null);
+            rename_action.activate.connect (() => {
+                on_rename_files ();
+            });
+            action_group.add_action (rename_action);
+
             list_item.child.insert_action_group ("row", action_group);
 
             var popover = new Gtk.PopoverMenu.from_model (menu);
@@ -673,7 +700,8 @@ namespace Pince {
 
         /**
          * Smart metadata fetch: if DOI is filled, fetch by DOI.
-         * Otherwise, search by title. One button, one action.
+         * Otherwise, search by title. Tries OpenAlex first (broader
+         * coverage: CrossRef + arXiv + PubMed), falls back to CrossRef.
          */
         private void on_fetch_metadata () {
             if (selected_document == null) return;
@@ -715,53 +743,185 @@ namespace Pince {
             fetch_status_label.remove_css_class ("success");
 
             if (doi.length > 0) {
-                // Fetch by DOI
-                fetch_status_label.label = _("Fetching by DOI from api.crossref.org...");
-                fetch_status_label.visible = true;
-
-                CrossRefClient.fetch_metadata.begin (selected_document, (obj, res) => {
-                    fetch_spinner.visible = false;
-                    fetch_spinner.spinning = false;
-                    fetch_metadata_button.sensitive = true;
-
-                    try {
-                        CrossRefClient.fetch_metadata.end (res);
-                        show_fetch_success ();
-                    } catch (Error e) {
-                        fetch_status_label.label = _("Fetch failed: %s").printf (e.message);
-                        fetch_status_label.remove_css_class ("success");
-                        fetch_status_label.add_css_class ("error");
-                        fetch_status_label.visible = true;
-                    }
-                });
+                fetch_by_doi.begin ();
             } else {
-                // Search by title
-                fetch_status_label.label = _("Searching by title on api.crossref.org...");
-                fetch_status_label.visible = true;
-
-                CrossRefClient.search_by_title.begin (selected_document, (obj, res) => {
-                    fetch_spinner.visible = false;
-                    fetch_spinner.spinning = false;
-                    fetch_metadata_button.sensitive = true;
-
-                    try {
-                        bool found = CrossRefClient.search_by_title.end (res);
-                        if (found) {
-                            show_fetch_success ();
-                        } else {
-                            fetch_status_label.label = _("No match found for this title.");
-                            fetch_status_label.remove_css_class ("success");
-                            fetch_status_label.add_css_class ("error");
-                            fetch_status_label.visible = true;
-                        }
-                    } catch (Error e) {
-                        fetch_status_label.label = _("Search failed: %s").printf (e.message);
-                        fetch_status_label.remove_css_class ("success");
-                        fetch_status_label.add_css_class ("error");
-                        fetch_status_label.visible = true;
-                    }
-                });
+                fetch_by_title.begin ();
             }
+        }
+
+        /**
+         * Types that indicate the DOI points to a sub-part rather than
+         * a real scholarly work — discard these and try title search.
+         */
+        private static bool is_bad_entry_type (string t) {
+            return t == "component" || t == "grant" || t == "peer-review"
+                || t == "reference-entry";
+        }
+
+        private async void fetch_by_doi () {
+            // Remember original title in case DOI fetch overwrites it with garbage
+            var original_title = selected_document.title;
+
+            // Try OpenAlex first (covers CrossRef + arXiv + more)
+            fetch_status_label.label = _("Fetching by DOI from OpenAlex...");
+            fetch_status_label.visible = true;
+
+            bool got_good_result = false;
+
+            try {
+                yield OpenAlexClient.fetch_metadata (selected_document);
+                if (!is_bad_entry_type (selected_document.entry_type)
+                    && selected_document.title.length > 0) {
+                    got_good_result = true;
+                }
+            } catch (Error e) {
+                // OpenAlex failed (404 etc), will try CrossRef
+            }
+
+            if (!got_good_result) {
+                // Fallback to CrossRef
+                fetch_status_label.label = _("Trying CrossRef...");
+                try {
+                    yield CrossRefClient.fetch_metadata (selected_document);
+                    if (!is_bad_entry_type (selected_document.entry_type)
+                        && selected_document.title.length > 0) {
+                        got_good_result = true;
+                    }
+                } catch (Error e) {
+                    // CrossRef also failed
+                }
+            }
+
+            // If DOI returned a bad type (component/grant), try title search instead
+            if (!got_good_result || is_bad_entry_type (selected_document.entry_type)) {
+                // Restore original title if DOI fetch overwrote with garbage
+                if (original_title.length > 5) {
+                    selected_document.title = original_title;
+                }
+                if (selected_document.title.length >= 5) {
+                    fetch_status_label.label = _("DOI returned non-article type, searching by title...");
+                    yield try_title_search ();
+                    return;
+                }
+                finish_fetch_error (_("DOI returned a '%s', not a scholarly work. Try editing the DOI or title.").printf (
+                    selected_document.entry_type));
+                return;
+            }
+
+            finish_fetch (true);
+        }
+
+        private async void fetch_by_title () {
+            yield try_title_search ();
+        }
+
+        private async void try_title_search () {
+            var original_title = selected_document.title;
+
+            // If the title looks like filename garbage, try extracting real title from PDF
+            if (looks_like_filename_title (original_title)) {
+                fetch_status_label.label = _("Title looks like a filename, reading PDF...");
+                fetch_status_label.visible = true;
+                var pdf_title = try_extract_pdf_title ();
+                if (pdf_title != null && pdf_title.length >= 10) {
+                    selected_document.title = pdf_title;
+                }
+            }
+
+            // Try OpenAlex first (better coverage)
+            fetch_status_label.label = _("Searching by title on OpenAlex...");
+            fetch_status_label.visible = true;
+
+            try {
+                bool found = yield OpenAlexClient.search_by_title (selected_document);
+                if (found && !is_bad_entry_type (selected_document.entry_type)) {
+                    finish_fetch (true);
+                    return;
+                }
+            } catch (Error e) {
+                // OpenAlex failed, try CrossRef
+            }
+
+            // Fallback to CrossRef
+            fetch_status_label.label = _("Trying CrossRef...");
+            try {
+                bool found = yield CrossRefClient.search_by_title (selected_document);
+                if (found && !is_bad_entry_type (selected_document.entry_type)) {
+                    finish_fetch (true);
+                    return;
+                }
+            } catch (Error e) {
+                // CrossRef also failed
+            }
+
+            // Restore original title if search replaced it
+            if (selected_document.title == original_title || selected_document.title.length == 0) {
+                selected_document.title = original_title;
+            }
+
+            finish_fetch_error (_("No match found. Try editing the title or adding a DOI."));
+        }
+
+        /**
+         * Detect if a title looks like it was derived from a filename
+         * rather than being a real paper title.
+         */
+        private bool looks_like_filename_title (string title) {
+            if (title.length == 0) return true;
+
+            // Contains hex hash prefix (12+ hex chars)
+            try {
+                var hex_regex = new Regex ("^[0-9a-f]{8,}", RegexCompileFlags.CASELESS);
+                if (hex_regex.match (title, 0, null)) return true;
+            } catch (RegexError e) {}
+
+            // Very short (< 15 chars) and no spaces
+            if (title.length < 15 && !title.contains (" ")) return true;
+
+            return false;
+        }
+
+        /**
+         * Try to extract the real title from the document's PDF file.
+         * Returns null if extraction fails.
+         */
+        private string? try_extract_pdf_title () {
+            if (selected_document == null) return null;
+            if (selected_document.filetype != "pdf") return null;
+
+            var path = selected_document.get_resolved_path (get_library_dir ());
+            try {
+                var file_uri = File.new_for_path (path).get_uri ();
+                var pdf_doc = new Poppler.Document.from_file (file_uri, null);
+                return MetadataExtractor.extract_title_from_pdf_text (pdf_doc);
+            } catch (Error e) {
+                return null;
+            }
+        }
+
+        private void finish_fetch (bool found) {
+            fetch_spinner.visible = false;
+            fetch_spinner.spinning = false;
+            fetch_metadata_button.sensitive = true;
+
+            if (found) {
+                show_fetch_success ();
+            } else {
+                fetch_status_label.label = _("No match found.");
+                fetch_status_label.remove_css_class ("success");
+                fetch_status_label.add_css_class ("error");
+                fetch_status_label.visible = true;
+            }
+        }
+
+        private void finish_fetch_error (string message) {
+            fetch_spinner.visible = false;
+            fetch_spinner.spinning = false;
+            fetch_metadata_button.sensitive = true;
+            fetch_status_label.label = message;
+            fetch_status_label.remove_css_class ("success");
+            fetch_status_label.add_css_class ("error");
+            fetch_status_label.visible = true;
         }
 
         private void show_fetch_success () {
@@ -1230,6 +1390,50 @@ namespace Pince {
             }
             if (selected.size == 0) return;
 
+            var settings = get_settings ();
+            bool confirm = settings != null ? settings.get_boolean ("confirm-remove") : true;
+
+            if (confirm) {
+                show_remove_confirmation (selected);
+            } else {
+                do_remove_documents (selected);
+            }
+        }
+
+        private void show_remove_confirmation (Gee.ArrayList<Document> selected) {
+            var dialog = new Adw.AlertDialog (
+                ngettext (
+                    _("Remove %d document?"),
+                    _("Remove %d documents?"),
+                    (ulong) selected.size
+                ).printf (selected.size),
+                _("This only removes the entry from the library. The file on disk is not deleted.")
+            );
+
+            var check = new Gtk.CheckButton.with_label (_("Don't tell me again"));
+            dialog.set_extra_child (check);
+
+            dialog.add_response ("cancel", _("Cancel"));
+            dialog.add_response ("remove", _("Remove"));
+            dialog.set_response_appearance ("remove", Adw.ResponseAppearance.DESTRUCTIVE);
+            dialog.default_response = "cancel";
+
+            dialog.response.connect ((response) => {
+                if (response == "remove") {
+                    if (check.active) {
+                        var settings = get_settings ();
+                        if (settings != null) {
+                            settings.set_boolean ("confirm-remove", false);
+                        }
+                    }
+                    do_remove_documents (selected);
+                }
+            });
+
+            dialog.present (this);
+        }
+
+        private void do_remove_documents (Gee.ArrayList<Document> selected) {
             selected_document = null;
             show_detail (false);
 
@@ -1265,6 +1469,225 @@ namespace Pince {
             toast.action_name = "win.undo-remove";
             toast.timeout = 5;
             toast_overlay.add_toast (toast);
+        }
+
+        // --- Move / Rename file features ---
+
+        private void on_move_files () {
+            var selected = get_selected_documents ();
+            if (selected.size == 0 && selected_document != null) {
+                selected.add (selected_document);
+            }
+            if (selected.size == 0) return;
+
+            var dialog = new Gtk.FileDialog ();
+            dialog.title = _("Move %d file(s) to...").printf (selected.size);
+
+            dialog.select_folder.begin (this, null, (obj, res) => {
+                try {
+                    var folder = dialog.select_folder.end (res);
+                    var dest_dir = folder.get_path ();
+                    move_documents_sync (selected, dest_dir);
+                } catch (Error e) {
+                    // User cancelled
+                }
+            });
+        }
+
+        private void move_documents_sync (Gee.ArrayList<Document> docs, string dest_dir) {
+            int moved = 0;
+            int failed = 0;
+            var lib_dir = get_library_dir ();
+
+            foreach (var doc in docs) {
+                var src_path = doc.get_resolved_path (lib_dir);
+                var src_file = File.new_for_path (src_path);
+
+                if (!src_file.query_exists ()) {
+                    failed++;
+                    continue;
+                }
+
+                var filename = Path.get_basename (src_path);
+                var dest_path = Path.build_filename (dest_dir, filename);
+                var dest_file = File.new_for_path (dest_path);
+
+                // Skip if source and destination are the same
+                if (src_path == dest_path) continue;
+
+                try {
+                    src_file.move (dest_file, FileCopyFlags.NONE, null, null);
+                    doc.path = library.make_relative_path (dest_path);
+                    library.update_document (doc);
+                    moved++;
+                } catch (Error e) {
+                    warning ("Move failed for %s: %s", filename, e.message);
+                    failed++;
+                }
+            }
+
+            string msg;
+            if (moved > 0) {
+                msg = _("Moved %d file(s)").printf (moved);
+                if (failed > 0) msg += _(", %d failed").printf (failed);
+            } else if (failed > 0) {
+                msg = _("Move failed for %d file(s)").printf (failed);
+            } else {
+                msg = _("No files to move");
+            }
+            var toast = new Adw.Toast (msg);
+            toast.timeout = 3;
+            toast_overlay.add_toast (toast);
+
+            if (selected_document != null) populate_detail ();
+        }
+
+        private void on_rename_files () {
+            var selected = get_selected_documents ();
+            if (selected.size == 0 && selected_document != null) {
+                selected.add (selected_document);
+            }
+            if (selected.size == 0) return;
+
+            // Check if any document has enough metadata to rename
+            int missing_metadata = 0;
+            foreach (var doc in selected) {
+                if (doc.authors.size == 0 && doc.year.length == 0) {
+                    missing_metadata++;
+                }
+            }
+
+            if (missing_metadata == selected.size) {
+                var toast = new Adw.Toast (_("Cannot rename: fetch metadata first (need at least author or year)"));
+                toast.timeout = 5;
+                toast_overlay.add_toast (toast);
+                return;
+            }
+
+            rename_documents_sync (selected);
+        }
+
+        private void rename_documents_sync (Gee.ArrayList<Document> docs) {
+            int renamed = 0;
+            int skipped = 0;
+            int failed = 0;
+            var lib_dir = get_library_dir ();
+
+            // Track used names for disambiguation within this batch
+            var used_names = new Gee.HashMap<string, int> ();
+
+            foreach (var doc in docs) {
+                var base_name = generate_author_year_name (doc);
+                if (base_name.length == 0) {
+                    skipped++;
+                    continue;
+                }
+
+                var src_path = doc.get_resolved_path (lib_dir);
+                var src_file = File.new_for_path (src_path);
+
+                if (!src_file.query_exists ()) {
+                    failed++;
+                    continue;
+                }
+
+                // Get extension from original filename
+                var original_name = Path.get_basename (src_path);
+                var ext = "";
+                var dot = original_name.last_index_of (".");
+                if (dot >= 0) {
+                    ext = original_name.substring (dot);
+                }
+
+                var dir = Path.get_dirname (src_path);
+
+                // Disambiguation: track how many times this base name is used
+                int count = used_names.has_key (base_name) ? used_names[base_name] : 0;
+                count++;
+                used_names[base_name] = count;
+
+                // Build final name with suffix letter (a, b, c, ...)
+                var suffix = ((char) ('a' + count - 1)).to_string ();
+                var final_name = base_name + suffix + ext;
+                var dest_path = Path.build_filename (dir, final_name);
+
+                // If already named correctly, skip
+                if (dest_path == src_path) continue;
+
+                // Avoid overwriting existing files
+                var dest_file = File.new_for_path (dest_path);
+                while (dest_file.query_exists () && dest_path != src_path) {
+                    count++;
+                    used_names[base_name] = count;
+                    suffix = ((char) ('a' + count - 1)).to_string ();
+                    final_name = base_name + suffix + ext;
+                    dest_path = Path.build_filename (dir, final_name);
+                    dest_file = File.new_for_path (dest_path);
+                }
+
+                try {
+                    src_file.move (dest_file, FileCopyFlags.NONE, null, null);
+                    doc.path = library.make_relative_path (dest_path);
+                    library.update_document (doc);
+                    renamed++;
+                } catch (Error e) {
+                    warning ("Rename failed for %s: %s", original_name, e.message);
+                    failed++;
+                }
+            }
+
+            string msg;
+            if (renamed > 0) {
+                msg = _("Renamed %d file(s)").printf (renamed);
+                if (skipped > 0) msg += _(", %d skipped (no metadata)").printf (skipped);
+                if (failed > 0) msg += _(", %d failed").printf (failed);
+            } else if (skipped > 0) {
+                msg = _("Skipped %d file(s): fetch metadata first").printf (skipped);
+            } else if (failed > 0) {
+                msg = _("Rename failed for %d file(s)").printf (failed);
+            } else {
+                msg = _("Files already have correct names");
+            }
+            var toast = new Adw.Toast (msg);
+            toast.timeout = 5;
+            toast_overlay.add_toast (toast);
+
+            if (selected_document != null) populate_detail ();
+            refresh_document_list ();
+        }
+
+        /**
+         * Generate authoryear base name from document metadata.
+         * E.g., "he2016" from author "He, Kaiming" and year "2016".
+         */
+        private string generate_author_year_name (Document doc) {
+            var sb = new StringBuilder ();
+
+            if (doc.authors.size > 0) {
+                var author = doc.authors[0];
+                string family;
+                if (author.contains (",")) {
+                    family = author.split (",", 2)[0].strip ();
+                } else {
+                    var parts = author.strip ().split (" ");
+                    family = parts[parts.length - 1];
+                }
+                // Lowercase, keep only letters and hyphens
+                var clean = new StringBuilder ();
+                unichar c;
+                int idx = 0;
+                var lower = family.down ();
+                while (lower.get_next_char (ref idx, out c)) {
+                    if (c.isalpha () || c == '-') clean.append_unichar (c);
+                }
+                sb.append (clean.str);
+            }
+
+            if (doc.year.length > 0 && doc.year != "0") {
+                sb.append (doc.year);
+            }
+
+            return sb.str;
         }
 
         private void refresh_view () {
@@ -1472,12 +1895,19 @@ namespace Pince {
         }
 
         private void on_folder_changed (File file, File? other_file, FileMonitorEvent event_type) {
-            if (event_type != FileMonitorEvent.CREATED) return;
+            if (event_type != FileMonitorEvent.CREATED &&
+                event_type != FileMonitorEvent.MOVED_IN) return;
 
             var filename = file.get_basename ();
             if (!is_supported_document (filename)) return;
 
+            // Skip files already in the library (e.g. after rename via Pince)
             var file_path = file.get_path ();
+            var lib_dir = get_library_dir ();
+            foreach (var doc in library.documents) {
+                if (doc.get_resolved_path (lib_dir) == file_path) return;
+            }
+
             var toast = new Adw.Toast (_("New file detected: %s").printf (filename));
             toast.button_label = _("Import");
             toast.timeout = 10;

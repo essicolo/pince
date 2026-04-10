@@ -31,5 +31,10 @@
       <summary>Watched folder path</summary>
       <description>Path to a folder being monitored for new documents to import.</description>
     </key>
+    <key name="confirm-remove" type="b">
+      <default>true</default>
+      <summary>Confirm before removing documents</summary>
+      <description>Show a confirmation dialog explaining that removing only deletes the entry from the library, not the file on disk.</description>
+    </key>
   </schema>
 </schemalist>

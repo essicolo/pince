@@ -97,6 +97,14 @@ namespace Pince {
                 doc.title = title.strip ();
             }
 
+            // If no title from metadata, try extracting from first page text
+            if (doc.title.length == 0) {
+                var candidate = extract_title_from_pdf_text (pdf_doc);
+                if (candidate != null && is_plausible_title (candidate)) {
+                    doc.title = candidate;
+                }
+            }
+
             var author = pdf_doc.get_author ();
             if (author != null && author.strip ().length > 0) {
                 var cleaned = clean_author_string (author.strip ());
@@ -116,6 +124,135 @@ namespace Pince {
             if (keywords != null && keywords.strip ().length > 0) {
                 doc.set_tags_from_string (keywords);
             }
+        }
+
+        /**
+         * Try to extract the paper title from the first page text.
+         * Academic papers typically have the title in ALL CAPS or large font
+         * near the top of the first page.
+         */
+        public static string? extract_title_from_pdf_text (Poppler.Document pdf_doc) {
+            if (pdf_doc.get_n_pages () == 0) return null;
+
+            var page = pdf_doc.get_page (0);
+            if (page == null) return null;
+            var text = page.get_text ();
+            if (text == null || text.length == 0) return null;
+
+            var lines = text.split ("\n");
+
+            // Collect clean lines from first ~30 lines of the page
+            var clean_lines = new Gee.ArrayList<string> ();
+            int limit = int.min (30, lines.length);
+            for (int i = 0; i < limit; i++) {
+                var line = lines[i].strip ();
+                if (line.length == 0) continue;
+                // Strip leading line numbers (e.g., "1  TITLE TEXT" or "1TITLE")
+                try {
+                    var num_prefix = new Regex ("^\\d{1,3}\\s*(?=[A-Z])");
+                    line = num_prefix.replace (line, -1, 0, "");
+                } catch (RegexError e) {}
+                clean_lines.add (line);
+            }
+
+            // Pass 1: Look for ALL-CAPS lines (strongest signal for paper titles)
+            var caps_candidates = new Gee.ArrayList<string> ();
+            for (int i = 0; i < clean_lines.size; i++) {
+                var line = clean_lines[i];
+                if (line.length < 15) continue;
+                if (is_citation_line (line)) continue;
+                if (is_mostly_uppercase (line)) {
+                    caps_candidates.add (line);
+                    // Check if next line is also caps (multi-line title)
+                    if (i + 1 < clean_lines.size) {
+                        var next = clean_lines[i + 1];
+                        if (next.length > 5 && is_mostly_uppercase (next) && !is_citation_line (next)) {
+                            caps_candidates.set (caps_candidates.size - 1, line + " " + next);
+                        }
+                    }
+                }
+            }
+
+            if (caps_candidates.size > 0) {
+                // Return the longest caps candidate (most likely the full title)
+                string best = caps_candidates[0];
+                foreach (var c in caps_candidates) {
+                    if (c.length > best.length) best = c;
+                }
+                return best;
+            }
+
+            // Pass 2: Look for the first substantial non-citation line
+            for (int i = 0; i < clean_lines.size; i++) {
+                var line = clean_lines[i];
+                if (line.length < 15) continue;
+                if (is_citation_line (line)) continue;
+
+                // Mostly alphabetic
+                int alpha_count = 0;
+                unichar c;
+                int idx = 0;
+                while (line.get_next_char (ref idx, out c)) {
+                    if (c.isalpha ()) alpha_count++;
+                }
+                if (alpha_count < line.length * 5 / 10) continue;
+
+                // Merge with next line if title seems to span multiple lines
+                if (line.length < 60 && i + 1 < clean_lines.size) {
+                    var next = clean_lines[i + 1];
+                    if (next.length > 5 && !is_citation_line (next)) {
+                        return (line + " " + next).strip ();
+                    }
+                }
+                return line;
+            }
+
+            return null;
+        }
+
+        /**
+         * Check if a line looks like a citation, header, or other non-title text.
+         */
+        private static bool is_citation_line (string line) {
+            // Ends with comma (typical for "Author, Year," citation format)
+            if (line.has_suffix (",")) return true;
+            // Contains volume/page patterns
+            if (line.contains (", v.") || line.contains (", p.")) return true;
+            // Looks like a URL or DOI
+            if (line.has_prefix ("http") || line.has_prefix ("doi:")) return true;
+            // Copyright, journal headers
+            if (line.has_prefix ("©") || line.has_prefix ("Vol.") ||
+                line.has_prefix ("Page ") || line.has_prefix ("ISSN")) return true;
+            // Author-initial pattern: "A.E. Name" or "Name, A.,"
+            try {
+                // "Initial. Initial. Last and Initial. Last, Year"
+                var author_pattern = new Regex (
+                    """^[A-Z]\.[A-Z]?\.\s|,\s*[A-Z]\.,""",
+                    RegexCompileFlags.CASELESS);
+                if (author_pattern.match (line, 0, null)) return true;
+            } catch (RegexError e) {}
+            // Contains "et al." or "Abstract" header
+            if (line.contains ("et al.")) return true;
+            if (line.strip () == "Abstract" || line.strip () == "ABSTRACT") return true;
+            return false;
+        }
+
+        /**
+         * Check if a string is mostly uppercase letters (> 70% of alpha chars).
+         */
+        private static bool is_mostly_uppercase (string text) {
+            int upper = 0;
+            int alpha = 0;
+            unichar c;
+            int idx = 0;
+            while (text.get_next_char (ref idx, out c)) {
+                if (c.isalpha ()) {
+                    alpha++;
+                    if (c.isupper ()) upper++;
+                }
+            }
+            if (alpha < 5) return false;
+            return upper > alpha * 7 / 10;
         }
 
         /**

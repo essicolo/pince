@@ -12,27 +12,51 @@ namespace Pince {
             Json.Array array;
 
             if (root.get_node_type () == Json.NodeType.ARRAY) {
-                // Old format: plain array of items
+                // Old format: plain array of items (legacy CSL JSON export).
+                // Validate that elements look like CSL items so we don't
+                // mistake an unrelated JSON array for a library and overwrite
+                // it on the next save.
                 array = root.get_array ();
+                for (uint i = 0; i < array.get_length (); i++) {
+                    var element = array.get_element (i);
+                    if (element.get_node_type () != Json.NodeType.OBJECT) {
+                        throw new IOError.INVALID_DATA (
+                            "This JSON file is not a Pince library (array contains non-object entries)."
+                        );
+                    }
+                    var item = element.get_object ();
+                    // A CSL item always has at least one of: id, type, title.
+                    if (!item.has_member ("id") && !item.has_member ("type") && !item.has_member ("title")) {
+                        throw new IOError.INVALID_DATA (
+                            "This JSON file is not a Pince library (entries are not CSL items)."
+                        );
+                    }
+                }
             } else if (root.get_node_type () == Json.NodeType.OBJECT) {
                 // New format: { pince: {...}, items: [...] }
+                // Require the "pince" marker so we don't silently accept an
+                // unrelated JSON object and overwrite it on the next save.
                 var obj = root.get_object ();
 
+                if (!obj.has_member ("pince")) {
+                    throw new IOError.INVALID_DATA (
+                        "This JSON file is not a Pince library (missing \"pince\" metadata key)."
+                    );
+                }
+
                 // Read library metadata
-                if (obj.has_member ("pince")) {
-                    var meta = obj.get_object_member ("pince");
-                    if (meta.has_member ("version")) {
-                        library.pince_version = meta.get_string_member ("version");
-                    }
-                    if (meta.has_member ("author")) {
-                        library.library_author = meta.get_string_member ("author");
-                    }
-                    if (meta.has_member ("created")) {
-                        library.created = meta.get_string_member ("created");
-                    }
-                    if (meta.has_member ("updated")) {
-                        library.updated = meta.get_string_member ("updated");
-                    }
+                var meta = obj.get_object_member ("pince");
+                if (meta.has_member ("version")) {
+                    library.pince_version = meta.get_string_member ("version");
+                }
+                if (meta.has_member ("author")) {
+                    library.library_author = meta.get_string_member ("author");
+                }
+                if (meta.has_member ("created")) {
+                    library.created = meta.get_string_member ("created");
+                }
+                if (meta.has_member ("updated")) {
+                    library.updated = meta.get_string_member ("updated");
                 }
 
                 if (obj.has_member ("items")) {
@@ -192,7 +216,21 @@ namespace Pince {
                     if (parts.get_length () > 0) {
                         var first = parts.get_array_element (0);
                         if (first.get_length () > 0) {
-                            doc.year = first.get_int_element (0).to_string ();
+                            var year_node = first.get_element (0);
+                            if (year_node.get_node_type () == Json.NodeType.VALUE) {
+                                string? yr = null;
+                                if (year_node.get_value_type () == typeof (int64)) {
+                                    var v = year_node.get_int ();
+                                    if (v > 0) yr = v.to_string ();
+                                } else if (year_node.get_value_type () == typeof (double)) {
+                                    var v = (int64) year_node.get_double ();
+                                    if (v > 0) yr = v.to_string ();
+                                } else if (year_node.get_value_type () == typeof (string)) {
+                                    var s = year_node.get_string ();
+                                    if (s != "0" && s.length > 0) yr = s;
+                                }
+                                if (yr != null) doc.year = yr;
+                            }
                         }
                     }
                 }

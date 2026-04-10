@@ -267,6 +267,117 @@ void test_filename_parsing () {
     assert_true (doc3.title == "some random document");
 }
 
+void test_csl_json_null_date_parts () {
+    // CrossRef API can return null or 0 in date-parts, e.g. [[null]] or [[0]]
+    // This must not crash (was causing json_array_get_int_element assertion failure)
+    var json = """
+    {
+      "pince": { "version": "0.1.0", "author": "", "created": "", "updated": "" },
+      "items": [
+        {
+          "id": "null-year",
+          "type": "article-journal",
+          "title": "Paper with null date",
+          "issued": { "date-parts": [[null]] },
+          "pince-path": "",
+          "pince-starred": false,
+          "pince-reading-status": "unread"
+        },
+        {
+          "id": "string-year",
+          "type": "article-journal",
+          "title": "Paper with string date",
+          "issued": { "date-parts": [["2021"]] },
+          "pince-path": "",
+          "pince-starred": false,
+          "pince-reading-status": "unread"
+        },
+        {
+          "id": "zero-year",
+          "type": "article-journal",
+          "title": "Paper with year 0",
+          "issued": { "date-parts": [[0]] },
+          "pince-path": "",
+          "pince-starred": false,
+          "pince-reading-status": "unread"
+        }
+      ]
+    }
+    """;
+
+    var tmp_path = Path.build_filename (Environment.get_tmp_dir (), "pince-test-null-date.json");
+    try {
+        FileUtils.set_contents (tmp_path, json);
+    } catch (Error e) {
+        Test.fail_printf ("Write failed: %s", e.message);
+        return;
+    }
+
+    var lib = new Pince.Library ();
+    try {
+        lib.load (tmp_path);
+    } catch (Error e) {
+        Test.fail_printf ("Load failed: %s", e.message);
+        FileUtils.remove (tmp_path);
+        return;
+    }
+
+    assert_true (lib.documents.size == 3);
+    // Null date-parts should result in empty year, not a crash
+    assert_true (lib.documents[0].year == "");
+    // String year should be parsed
+    assert_true (lib.documents[1].year == "2021");
+    // Year 0 should be treated as unknown (empty)
+    assert_true (lib.documents[2].year == "");
+
+    FileUtils.remove (tmp_path);
+}
+
+void test_openalex_parse () {
+    // Real OpenAlex response for thesis DOI 10.22215/etd/2024-16003
+    var json = """{"id":"https://openalex.org/W4401632393","doi":"https://doi.org/10.22215/etd/2024-16003","title":"Dynamic Environmental Change at the Cusp of the Great Oxidation Event: The Gowganda-Lorrain Formation Transition, Cobalt Basin, Ontario and Quebec","display_name":"Dynamic Environmental Change at the Cusp of the Great Oxidation Event: The Gowganda-Lorrain Formation Transition, Cobalt Basin, Ontario and Quebec","publication_year":2024,"publication_date":"2024-01-01","type":"dissertation","authorships":[{"author_position":"first","author":{"id":"https://openalex.org/A5089161250","display_name":"Nabil A. Shawwa","orcid":"https://orcid.org/0000-0002-9854-0886"},"institutions":[],"countries":[],"is_corresponding":true,"raw_author_name":"Nabil Allam Shawwa","raw_affiliation_strings":[],"affiliations":[]}],"primary_location":{"id":"doi:10.22215/etd/2024-16003","is_oa":true,"landing_page_url":"https://doi.org/10.22215/etd/2024-16003","pdf_url":null,"source":null,"license":null,"license_id":null,"version":"publishedVersion","is_accepted":true,"is_published":true,"raw_source_name":"Carleton University","raw_type":"dissertation"},"biblio":{"volume":null,"issue":null,"first_page":null,"last_page":null},"abstract_inverted_index":{"The":[0,3],"Huronian":[1],"Supergroup,":[2],"early":[4],"one":[5]}}""";
+
+    var doc = new Pince.Document ();
+    doc.doi = "10.22215/etd/2024-16003";
+
+    try {
+        Pince.OpenAlexClient.parse_work (json, doc);
+    } catch (Error e) {
+        Test.fail_printf ("OpenAlex parse failed: %s", e.message);
+        return;
+    }
+
+    assert_true (doc.title == "Dynamic Environmental Change at the Cusp of the Great Oxidation Event: The Gowganda-Lorrain Formation Transition, Cobalt Basin, Ontario and Quebec");
+    assert_true (doc.year == "2024");
+    assert_true (doc.authors.size == 1);
+    assert_true (doc.authors[0] == "Shawwa, Nabil A.");
+    assert_true (doc.entry_type == "dissertation");
+    // Abstract reconstructed from inverted index
+    assert_true (doc.abstract_text.contains ("The"));
+    assert_true (doc.abstract_text.contains ("Huronian"));
+}
+
+void test_crossref_parse_null_date () {
+    // Real CrossRef response for thesis DOI — date-parts is [[null]]
+    var json = """{"status":"ok","message-type":"work","message":{"DOI":"10.22215/etd/2024-16003","type":"dissertation","title":["Dynamic Environmental Change"],"author":[{"given":"Nabil Allam","family":"Shawwa","sequence":"first"}],"issued":{"date-parts":[[null]]},"publisher":"Carleton University","URL":"https://doi.org/10.22215/etd/2024-16003"}}""";
+
+    var doc = new Pince.Document ();
+    doc.doi = "10.22215/etd/2024-16003";
+
+    try {
+        Pince.CrossRefClient.parse_crossref_response (json, doc);
+    } catch (Error e) {
+        Test.fail_printf ("CrossRef parse failed: %s", e.message);
+        return;
+    }
+
+    assert_true (doc.title == "Dynamic Environmental Change");
+    assert_true (doc.year == "");  // null date-parts → empty year, no crash
+    assert_true (doc.authors.size == 1);
+    assert_true (doc.authors[0] == "Shawwa, Nabil Allam");
+    assert_true (doc.publisher == "Carleton University");
+}
+
 void test_doi_extraction () {
     var doi1 = Pince.MetadataExtractor.extract_doi_from_text (
         "This is a paper. https://doi.org/10.1038/nature12373 is the reference."
@@ -470,6 +581,9 @@ int main (string[] args) {
     Test.add_func ("/pince/library/find-all-duplicates", test_find_all_duplicates);
     Test.add_func ("/pince/library/relative-path-storage", test_relative_path_storage);
     Test.add_func ("/pince/document/path-resolution", test_document_path_resolution);
+    Test.add_func ("/pince/csl-json/null-date-parts", test_csl_json_null_date_parts);
+    Test.add_func ("/pince/fetch/openalex-parse", test_openalex_parse);
+    Test.add_func ("/pince/fetch/crossref-null-date", test_crossref_parse_null_date);
     Test.add_func ("/pince/metadata/doi-validation", test_doi_validation);
     Test.add_func ("/pince/cross-format", test_cross_format_conversion);
     Test.add_func ("/pince/metadata/author-plausibility", test_author_plausibility);

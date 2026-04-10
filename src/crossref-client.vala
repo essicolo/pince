@@ -17,6 +17,15 @@ namespace Pince {
         private const string BASE_URL = "https://api.crossref.org/works/";
         private const string USER_AGENT = "Pince/0.1.0 (https://github.com/essicolo/pince; mailto:pince@example.com)";
 
+        private static Soup.Session? _session = null;
+        private static Soup.Session get_session () {
+            if (_session == null) {
+                _session = new Soup.Session ();
+                _session.timeout = 15;
+            }
+            return _session;
+        }
+
         /**
          * Validate that a string looks like a DOI before making any request.
          * DOIs start with "10." followed by a registrant code and a suffix.
@@ -57,8 +66,7 @@ namespace Pince {
                 );
             }
 
-            var session = new Soup.Session ();
-            session.timeout = 15;
+            var session = get_session ();
 
             var encoded_doi = Uri.escape_string (doc.doi, "/", false);
             var url = BASE_URL + encoded_doi;
@@ -92,8 +100,7 @@ namespace Pince {
                 throw new IOError.INVALID_ARGUMENT ("Title too short to search");
             }
 
-            var session = new Soup.Session ();
-            session.timeout = 15;
+            var session = get_session ();
 
             var encoded_title = Uri.escape_string (doc.title, null, false);
             var url = "https://%s/works?query.bibliographic=%s&rows=3".printf (API_HOST, encoded_title);
@@ -143,7 +150,7 @@ namespace Pince {
             return true;
         }
 
-        private static void parse_crossref_response (string data, Document doc) throws Error {
+        public static void parse_crossref_response (string data, Document doc) throws Error {
             var parser = new Json.Parser ();
             parser.load_from_data (data);
 
@@ -244,7 +251,21 @@ namespace Pince {
                 if (parts.get_length () > 0) {
                     var first = parts.get_array_element (0);
                     if (first.get_length () > 0) {
-                        doc.year = first.get_int_element (0).to_string ();
+                        var year_node = first.get_element (0);
+                        if (year_node.get_node_type () == Json.NodeType.VALUE) {
+                            string? yr = null;
+                            if (year_node.get_value_type () == typeof (int64)) {
+                                var v = year_node.get_int ();
+                                if (v > 0) yr = v.to_string ();
+                            } else if (year_node.get_value_type () == typeof (double)) {
+                                var v = (int64) year_node.get_double ();
+                                if (v > 0) yr = v.to_string ();
+                            } else if (year_node.get_value_type () == typeof (string)) {
+                                var s = year_node.get_string ();
+                                if (s != "0" && s.length > 0) yr = s;
+                            }
+                            if (yr != null) doc.year = yr;
+                        }
                     }
                 }
             }
