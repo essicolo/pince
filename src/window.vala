@@ -1,7 +1,7 @@
 namespace Pince {
     [GtkTemplate (ui = "/io/github/essicolo/Pince/window.ui")]
     public class Window : Adw.ApplicationWindow {
-        [GtkChild] unowned Gtk.Button add_button;
+        [GtkChild] unowned Adw.SplitButton add_button;
         [GtkChild] unowned Gtk.ToggleButton search_toggle;
         [GtkChild] unowned Adw.WindowTitle title_widget;
         [GtkChild] unowned Gtk.ToggleButton sidebar_toggle;
@@ -43,6 +43,7 @@ namespace Pince {
         [GtkChild] unowned Gtk.Button open_notes_button;
         [GtkChild] unowned Gtk.Button move_file_button;
         [GtkChild] unowned Gtk.Button rename_file_button;
+        [GtkChild] unowned Adw.OverlaySplitView content_split;
 
         private Library library;
         private Document? selected_document = null;
@@ -201,6 +202,20 @@ namespace Pince {
             });
             this.add_action (select_all_action);
 
+            // Add Folder action
+            var add_folder_action = new SimpleAction ("add-folder", null);
+            add_folder_action.activate.connect (() => {
+                on_add_folder ();
+            });
+            this.add_action (add_folder_action);
+
+            // Rename All action
+            var rename_all_action = new SimpleAction ("rename-all", null);
+            rename_all_action.activate.connect (() => {
+                on_rename_all ();
+            });
+            this.add_action (rename_all_action);
+
             // Watch Folder action
             var watch_action = new SimpleAction ("watch-folder", null);
             watch_action.activate.connect (on_watch_folder);
@@ -317,6 +332,10 @@ namespace Pince {
                 foreach (var doc in docs) {
                     library.add_document (doc);
                 }
+                // Auto-rename if preference is enabled
+                if (should_auto_rename ()) {
+                    rename_documents_sync (docs);
+                }
             });
             dialog.present (this);
             yield dialog.extract_files (paths);
@@ -366,6 +385,63 @@ namespace Pince {
                     }
                 } catch (Error e) {}
             });
+        }
+
+        private void on_add_folder () {
+            if (library.file_path.length == 0) {
+                prompt_create_library_then_add ();
+                return;
+            }
+
+            var dialog = new Gtk.FileDialog ();
+            dialog.title = _("Add Folder");
+
+            dialog.select_folder.begin (this, null, (obj, res) => {
+                try {
+                    var folder = dialog.select_folder.end (res);
+                    collect_folder_files.begin (folder.get_path ());
+                } catch (Error e) {}
+            });
+        }
+
+        private async void collect_folder_files (string folder_path) {
+            string[] supported_extensions = { ".pdf", ".docx", ".odt", ".txt", ".epub", ".md" };
+            var paths = new Gee.ArrayList<string> ();
+
+            try {
+                var dir = Dir.open (folder_path);
+                string? name;
+                while ((name = dir.read_name ()) != null) {
+                    var lower = name.down ();
+                    bool supported = false;
+                    foreach (var ext in supported_extensions) {
+                        if (lower.has_suffix (ext)) {
+                            supported = true;
+                            break;
+                        }
+                    }
+                    if (supported) {
+                        paths.add (Path.build_filename (folder_path, name));
+                    }
+                }
+            } catch (Error e) {
+                warning ("Failed to read folder: %s", e.message);
+                return;
+            }
+
+            if (paths.size == 0) {
+                var toast = new Adw.Toast (_("No supported documents found in folder"));
+                toast.timeout = 3;
+                toast_overlay.add_toast (toast);
+                return;
+            }
+
+            // Sort for consistent ordering
+            paths.sort ((a, b) => {
+                return strcmp (a.down (), b.down ());
+            });
+
+            yield add_files (paths);
         }
 
         private void on_search_changed () {
@@ -427,7 +503,7 @@ namespace Pince {
                     populate_detail ();
                 } else {
                     selected_document = null;
-                    show_detail (false);
+                    hide_detail ();
                 }
             });
 
@@ -627,6 +703,13 @@ namespace Pince {
         private void show_detail (bool show) {
             detail_content.visible = show;
             detail_empty.visible = !show;
+            content_split.show_sidebar = true;
+        }
+
+        private void hide_detail () {
+            detail_content.visible = false;
+            detail_empty.visible = true;
+            content_split.show_sidebar = false;
         }
 
         private void populate_detail () {
@@ -998,7 +1081,7 @@ namespace Pince {
                         for (int i = 1; i < group.size; i++) {
                             if (selected_document == group[i]) {
                                 selected_document = null;
-                                show_detail (false);
+                                hide_detail ();
                             }
                             library.remove_document (group[i]);
                         }
@@ -1371,6 +1454,11 @@ namespace Pince {
             return new GLib.Settings ("io.github.essicolo.Pince");
         }
 
+        private bool should_auto_rename () {
+            var settings = get_settings ();
+            return settings != null && settings.get_boolean ("auto-rename-on-import");
+        }
+
         private void on_open_file () {
             if (selected_document == null) return;
             var path = selected_document.get_resolved_path (get_library_dir ());
@@ -1435,7 +1523,7 @@ namespace Pince {
 
         private void do_remove_documents (Gee.ArrayList<Document> selected) {
             selected_document = null;
-            show_detail (false);
+            hide_detail ();
 
             foreach (var doc in selected) {
                 library.remove_document (doc);
@@ -1565,6 +1653,16 @@ namespace Pince {
             }
 
             rename_documents_sync (selected);
+        }
+
+        private void on_rename_all () {
+            if (library.file_path.length == 0 || library.documents.size == 0) return;
+
+            var docs = new Gee.ArrayList<Document> ();
+            foreach (var doc in library.documents) {
+                docs.add (doc);
+            }
+            rename_documents_sync (docs);
         }
 
         private void rename_documents_sync (Gee.ArrayList<Document> docs) {

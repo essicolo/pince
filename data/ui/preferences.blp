@@ -23,6 +23,17 @@ template $PincePreferences: Adw.PreferencesDialog {
     }
 
     Adw.PreferencesGroup {
+      title: "Files";
+      description: "Configure file handling behavior.";
+
+      Adw.SwitchRow auto_rename_row {
+        title: "Auto-rename on Import";
+        subtitle: "Rename imported files to Author-Year format (e.g., vasyukova2022a.pdf).";
+        active: false;
+      }
+    }
+
+    Adw.PreferencesGroup {
       title: "Metadata";
       description: "Configure metadata extraction behavior.";
 

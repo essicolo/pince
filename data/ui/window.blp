@@ -27,9 +27,10 @@ template $PinceWindow: Adw.ApplicationWindow {
       }
 
       [start]
-      Gtk.Button add_button {
+      Adw.SplitButton add_button {
         icon-name: "list-add-symbolic";
         tooltip-text: "Add Documents";
+        menu-model: add_menu;
       }
 
       [title]
@@ -161,13 +162,13 @@ template $PinceWindow: Adw.ApplicationWindow {
           }
         };
 
-        end-child: Gtk.Paned content_paned {
-          orientation: horizontal;
-          position: 600;
-          shrink-start-child: false;
-          shrink-end-child: false;
+        end-child: Adw.OverlaySplitView content_split {
+          sidebar-position: end;
+          show-sidebar: false;
+          min-sidebar-width: 320;
+          max-sidebar-width: 500;
 
-          start-child: Gtk.Box {
+          content: Gtk.Box {
             orientation: vertical;
             hexpand: true;
 
@@ -193,8 +194,7 @@ template $PinceWindow: Adw.ApplicationWindow {
             }
           };
 
-          end-child: Gtk.ScrolledWindow detail_scroll {
-            width-request: 320;
+          sidebar: Gtk.ScrolledWindow detail_scroll {
             hscrollbar-policy: never;
 
             Adw.Clamp {
@@ -475,6 +475,13 @@ template $PinceWindow: Adw.ApplicationWindow {
   };
 }
 
+menu add_menu {
+  item {
+    label: _("Add Folder...");
+    action: "win.add-folder";
+  }
+}
+
 menu open_menu {
   section {
     item {
@@ -514,6 +521,13 @@ menu primary_menu {
     item {
       label: _("Statistics...");
       action: "win.show-stats";
+    }
+  }
+
+  section {
+    item {
+      label: _("Rename All Files (Author-Year)");
+      action: "win.rename-all";
     }
   }
 

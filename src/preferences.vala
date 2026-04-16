@@ -2,6 +2,7 @@ namespace Pince {
     [GtkTemplate (ui = "/io/github/essicolo/Pince/preferences.ui")]
     public class Preferences : Adw.PreferencesDialog {
         [GtkChild] unowned Adw.ComboRow format_row;
+        [GtkChild] unowned Adw.SwitchRow auto_rename_row;
         [GtkChild] unowned Adw.SwitchRow auto_fetch_row;
         [GtkChild] unowned Adw.EntryRow crossref_email_row;
 
@@ -15,6 +16,7 @@ namespace Pince {
                 if (schema != null) {
                     settings = new Settings ("io.github.essicolo.Pince");
                     format_row.selected = settings.get_enum ("default-format");
+                    auto_rename_row.active = settings.get_boolean ("auto-rename-on-import");
                     auto_fetch_row.active = settings.get_boolean ("auto-fetch-doi");
                     crossref_email_row.text = settings.get_string ("crossref-email");
                 }
@@ -23,6 +25,11 @@ namespace Pince {
             format_row.notify["selected"].connect (() => {
                 if (settings != null) {
                     settings.set_enum ("default-format", (int) format_row.selected);
+                }
+            });
+            auto_rename_row.notify["active"].connect (() => {
+                if (settings != null) {
+                    settings.set_boolean ("auto-rename-on-import", auto_rename_row.active);
                 }
             });
             auto_fetch_row.notify["active"].connect (() => {

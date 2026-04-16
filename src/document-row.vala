@@ -52,18 +52,13 @@ namespace Pince {
 
         private void update_reading_status () {
             if (document == null) return;
+            reading_status_icon.visible = false;
             switch (document.reading_status) {
                 case ReadingStatus.READ:
-                    reading_status_icon.icon_name = "object-select-symbolic";
-                    reading_status_icon.remove_css_class ("dim-label");
-                    reading_status_icon.add_css_class ("success");
-                    reading_status_icon.tooltip_text = _("Read");
-                    reading_status_icon.visible = true;
                     title_label.remove_css_class ("bold-label");
                     break;
                 default:
-                    // Unread — no icon, bold title
-                    reading_status_icon.visible = false;
+                    // Unread — bold title
                     title_label.add_css_class ("bold-label");
                     break;
             }

@@ -31,6 +31,11 @@
       <summary>Watched folder path</summary>
       <description>Path to a folder being monitored for new documents to import.</description>
     </key>
+    <key name="auto-rename-on-import" type="b">
+      <default>false</default>
+      <summary>Auto-rename files on import</summary>
+      <description>Automatically rename imported files to Author-Year format (e.g., vasyukova2022a.pdf).</description>
+    </key>
     <key name="confirm-remove" type="b">
       <default>true</default>
       <summary>Confirm before removing documents</summary>
