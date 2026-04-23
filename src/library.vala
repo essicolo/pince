@@ -75,6 +75,18 @@ namespace Pince {
             schedule_save ();
         }
 
+        // Batch variant: callers mutate every document first, then call this
+        // once so the expensive changed signal and save fire a single time
+        // instead of N times. Bulk actions on large selections would otherwise
+        // rebuild the full list/tag views per document (O(N^2)) and freeze
+        // the UI long enough to trigger the compositor's force-quit dialog.
+        public void update_documents (Gee.Collection<Document> docs) {
+            if (docs.size == 0) return;
+            modified = true;
+            changed ();
+            schedule_save ();
+        }
+
         public Gee.Set<string> get_all_tags () {
             var tags = new Gee.TreeSet<string> ();
             foreach (var doc in _documents) {

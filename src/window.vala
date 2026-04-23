@@ -1427,19 +1427,22 @@ namespace Pince {
 
         private void apply_to_selected_or_row (DocumentRow row, DocAction action) {
             var selected = get_selected_documents ();
+            Gee.ArrayList<Document> targets;
             if (selected.size > 1) {
-                foreach (var doc in selected) {
-                    action (doc);
-                    library.update_document (doc);
-                }
+                targets = selected;
             } else if (row.document != null) {
-                action (row.document);
-                library.update_document (row.document);
+                targets = new Gee.ArrayList<Document> ();
+                targets.add (row.document);
+            } else {
+                return;
             }
+            foreach (var doc in targets) {
+                action (doc);
+            }
+            library.update_documents (targets);
             if (selected_document != null) {
                 populate_detail ();
             }
-            refresh_document_list ();
         }
 
         private string get_library_dir () {
