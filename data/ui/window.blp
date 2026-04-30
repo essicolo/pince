@@ -25,6 +25,13 @@ template $PinceWindow: Adw.ApplicationWindow {
     [top]
     Adw.HeaderBar {
       [start]
+      Gtk.ToggleButton sidebar_toggle {
+        icon-name: "sidebar-show-symbolic";
+        tooltip-text: "Toggle Tags Sidebar";
+        active: true;
+      }
+
+      [start]
       Gtk.MenuButton open_menu_button {
         label: _("Open");
         tooltip-text: "Open Library";
@@ -58,10 +65,10 @@ template $PinceWindow: Adw.ApplicationWindow {
       }
 
       [end]
-      Gtk.ToggleButton sidebar_toggle {
-        icon-name: "sidebar-show-symbolic";
-        tooltip-text: "Toggle Tags Sidebar";
-        active: true;
+      Gtk.ToggleButton detail_toggle {
+        icon-name: "sidebar-show-right-symbolic";
+        tooltip-text: "Toggle Detail Pane";
+        active: bind content_split.show-sidebar bidirectional;
       }
 
       [end]
