@@ -262,27 +262,45 @@ namespace Pince {
         }
 
         public void load (string path) throws Error {
-            this.file_path = path;
-            this.format = LibraryFormat.from_filename (path);
-            _documents.clear ();
-
-            // Save constructor defaults — will be overwritten if file has metadata
-            var default_created = created;
-            var default_author = library_author;
-
+            var fmt = LibraryFormat.from_filename (path);
             var file = File.new_for_path (path);
+
+            // Empty / non-existent target: just adopt the path and stay empty.
             if (!file.query_exists ()) {
+                this.file_path = path;
+                this.format = fmt;
+                _documents.clear ();
+                modified = false;
+                changed ();
                 return;
             }
 
-            switch (format) {
+            // Parse into a scratch library first so that a parse failure
+            // (e.g. an arbitrary JSON file the user mis-selected) does not
+            // mutate our current state — otherwise we would clear documents
+            // and adopt the bad path, then overwrite the user's file on the
+            // next save / on close.
+            var staged = new Library ();
+            switch (fmt) {
                 case LibraryFormat.CSL_JSON:
-                    CslJsonIO.load (this, path);
+                    CslJsonIO.load (staged, path);
                     break;
                 case LibraryFormat.BIBTEX:
-                    BibtexIO.load (this, path);
+                    BibtexIO.load (staged, path);
                     break;
             }
+
+            // Parse succeeded — commit the new state.
+            this.file_path = path;
+            this.format = fmt;
+            _documents.clear ();
+            foreach (var doc in staged.documents) {
+                _documents.add (doc);
+            }
+            this.pince_version = staged.pince_version;
+            this.library_author = staged.library_author;
+            this.created = staged.created;
+            this.updated = staged.updated;
 
             modified = false;
             changed ();
