@@ -1633,6 +1633,7 @@ namespace Pince {
         private void move_documents_sync (Gee.ArrayList<Document> docs, string dest_dir) {
             int moved = 0;
             int failed = 0;
+            var moved_docs = new Gee.ArrayList<Document> ();
             var lib_dir = get_library_dir ();
 
             foreach (var doc in docs) {
@@ -1654,12 +1655,18 @@ namespace Pince {
                 try {
                     src_file.move (dest_file, FileCopyFlags.NONE, null, null);
                     doc.path = library.make_relative_path (dest_path);
-                    library.update_document (doc);
+                    moved_docs.add (doc);
                     moved++;
                 } catch (Error e) {
                     warning ("Move failed for %s: %s", filename, e.message);
                     failed++;
                 }
+            }
+
+            // Single batched update so the changed signal and save fire once
+            // for the whole bulk move instead of N times.
+            if (moved_docs.size > 0) {
+                library.update_documents (moved_docs);
             }
 
             string msg;
@@ -1717,6 +1724,7 @@ namespace Pince {
             int renamed = 0;
             int skipped = 0;
             int failed = 0;
+            var renamed_docs = new Gee.ArrayList<Document> ();
             var lib_dir = get_library_dir ();
 
             // Track used names for disambiguation within this batch
@@ -1774,12 +1782,17 @@ namespace Pince {
                 try {
                     src_file.move (dest_file, FileCopyFlags.NONE, null, null);
                     doc.path = library.make_relative_path (dest_path);
-                    library.update_document (doc);
+                    renamed_docs.add (doc);
                     renamed++;
                 } catch (Error e) {
                     warning ("Rename failed for %s: %s", original_name, e.message);
                     failed++;
                 }
+            }
+
+            // Single batched update — see move_documents_sync.
+            if (renamed_docs.size > 0) {
+                library.update_documents (renamed_docs);
             }
 
             string msg;
