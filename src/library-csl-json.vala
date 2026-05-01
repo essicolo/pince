@@ -129,6 +129,10 @@ namespace Pince {
                 doc.doi = obj.get_string_member ("DOI");
             }
 
+            if (obj.has_member ("ISBN")) {
+                doc.isbn = obj.get_string_member ("ISBN");
+            }
+
             if (obj.has_member ("abstract")) {
                 doc.abstract_text = obj.get_string_member ("abstract");
             }
@@ -272,6 +276,11 @@ namespace Pince {
             if (doc.doi.length > 0) {
                 builder.set_member_name ("DOI");
                 builder.add_string_value (doc.doi);
+            }
+
+            if (doc.isbn.length > 0) {
+                builder.set_member_name ("ISBN");
+                builder.add_string_value (doc.isbn);
             }
 
             if (doc.abstract_text.length > 0) {

@@ -33,6 +33,7 @@ namespace Pince {
         public string title { get; set; default = ""; }
         public string year { get; set; default = ""; }
         public string doi { get; set; default = ""; }
+        public string isbn { get; set; default = ""; }
         public string abstract_text { get; set; default = ""; }
         public string note { get; set; default = ""; }
         public string filetype { get; set; default = ""; }
@@ -130,6 +131,7 @@ namespace Pince {
                 if (tag.down ().contains (lower_query)) return true;
             }
             if (doi.down ().contains (lower_query)) return true;
+            if (isbn.down ().contains (lower_query)) return true;
             if (year.contains (lower_query)) return true;
             return false;
         }

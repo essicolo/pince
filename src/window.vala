@@ -22,6 +22,7 @@ namespace Pince {
         [GtkChild] unowned Adw.EntryRow year_entry;
         [GtkChild] unowned Adw.EntryRow tags_entry;
         [GtkChild] unowned Adw.EntryRow doi_entry;
+        [GtkChild] unowned Adw.EntryRow isbn_entry;
         [GtkChild] unowned Gtk.Button fetch_metadata_button;
         [GtkChild] unowned Gtk.Spinner fetch_spinner;
         [GtkChild] unowned Gtk.Label fetch_status_label;
@@ -83,6 +84,7 @@ namespace Pince {
             year_entry.changed.connect (on_detail_changed);
             tags_entry.changed.connect (on_detail_changed);
             doi_entry.changed.connect (on_detail_changed);
+            isbn_entry.changed.connect (on_detail_changed);
             journal_entry.changed.connect (on_detail_changed);
             volume_entry.changed.connect (on_detail_changed);
             pages_entry.changed.connect (on_detail_changed);
@@ -721,6 +723,7 @@ namespace Pince {
             year_entry.text = selected_document.year;
             tags_entry.text = selected_document.get_tags_display ();
             doi_entry.text = selected_document.doi;
+            isbn_entry.text = selected_document.isbn;
             journal_entry.text = selected_document.journal;
             volume_entry.text = selected_document.volume;
             pages_entry.text = selected_document.pages;
@@ -763,6 +766,7 @@ namespace Pince {
             selected_document.year = year_entry.text;
             selected_document.set_tags_from_string (tags_entry.text);
             selected_document.doi = doi_entry.text;
+            selected_document.isbn = isbn_entry.text;
             selected_document.journal = journal_entry.text;
             selected_document.volume = volume_entry.text;
             selected_document.pages = pages_entry.text;
@@ -790,6 +794,7 @@ namespace Pince {
             if (selected_document == null) return;
 
             var doi = doi_entry.text.strip ();
+            var isbn_raw = isbn_entry.text.strip ();
             var title = title_entry.text.strip ();
 
             // Clean DOI if provided
@@ -808,8 +813,19 @@ namespace Pince {
                 updating_detail = false;
             }
 
-            if (doi.length == 0 && title.length < 5) {
-                fetch_status_label.label = _("Enter a DOI or a title to search.");
+            // Normalize ISBN (strip hyphens/spaces) so the validator and
+            // OpenLibrary both see digits-only.
+            string isbn_norm = "";
+            if (isbn_raw.length > 0) {
+                isbn_norm = IsbnClient.normalize_isbn (isbn_raw);
+                selected_document.isbn = isbn_norm;
+                updating_detail = true;
+                isbn_entry.text = isbn_norm;
+                updating_detail = false;
+            }
+
+            if (doi.length == 0 && isbn_norm.length == 0 && title.length < 5) {
+                fetch_status_label.label = _("Enter a DOI, an ISBN, or a title to search.");
                 fetch_status_label.remove_css_class ("success");
                 fetch_status_label.add_css_class ("error");
                 fetch_status_label.visible = true;
@@ -825,10 +841,39 @@ namespace Pince {
             fetch_status_label.remove_css_class ("error");
             fetch_status_label.remove_css_class ("success");
 
-            if (doi.length > 0) {
+            // ISBN is the most specific identifier — try it first when present.
+            if (isbn_norm.length > 0) {
+                fetch_by_isbn.begin ();
+            } else if (doi.length > 0) {
                 fetch_by_doi.begin ();
             } else {
                 fetch_by_title.begin ();
+            }
+        }
+
+        private async void fetch_by_isbn () {
+            if (!IsbnClient.is_valid_isbn (selected_document.isbn)) {
+                finish_fetch_error (_("Invalid ISBN: must be 10 or 13 digits with a valid check digit."));
+                return;
+            }
+
+            fetch_status_label.label = _("Fetching by ISBN from OpenLibrary...");
+            fetch_status_label.visible = true;
+
+            try {
+                yield IsbnClient.fetch_metadata (selected_document);
+                finish_fetch (true);
+            } catch (Error e) {
+                // OpenLibrary didn't have it — fall back to DOI / title if available.
+                if (selected_document.doi.length > 0) {
+                    fetch_status_label.label = _("ISBN not found, trying DOI...");
+                    yield fetch_by_doi ();
+                } else if (selected_document.title.length >= 5) {
+                    fetch_status_label.label = _("ISBN not found, searching by title...");
+                    yield try_title_search ();
+                } else {
+                    finish_fetch_error (_("No OpenLibrary entry for ISBN %s.").printf (selected_document.isbn));
+                }
             }
         }
 
@@ -1588,6 +1633,7 @@ namespace Pince {
         private void move_documents_sync (Gee.ArrayList<Document> docs, string dest_dir) {
             int moved = 0;
             int failed = 0;
+            var moved_docs = new Gee.ArrayList<Document> ();
             var lib_dir = get_library_dir ();
 
             foreach (var doc in docs) {
@@ -1609,12 +1655,18 @@ namespace Pince {
                 try {
                     src_file.move (dest_file, FileCopyFlags.NONE, null, null);
                     doc.path = library.make_relative_path (dest_path);
-                    library.update_document (doc);
+                    moved_docs.add (doc);
                     moved++;
                 } catch (Error e) {
                     warning ("Move failed for %s: %s", filename, e.message);
                     failed++;
                 }
+            }
+
+            // Single batched update so the changed signal and save fire once
+            // for the whole bulk move instead of N times.
+            if (moved_docs.size > 0) {
+                library.update_documents (moved_docs);
             }
 
             string msg;
@@ -1672,6 +1724,7 @@ namespace Pince {
             int renamed = 0;
             int skipped = 0;
             int failed = 0;
+            var renamed_docs = new Gee.ArrayList<Document> ();
             var lib_dir = get_library_dir ();
 
             // Track used names for disambiguation within this batch
@@ -1729,12 +1782,17 @@ namespace Pince {
                 try {
                     src_file.move (dest_file, FileCopyFlags.NONE, null, null);
                     doc.path = library.make_relative_path (dest_path);
-                    library.update_document (doc);
+                    renamed_docs.add (doc);
                     renamed++;
                 } catch (Error e) {
                     warning ("Rename failed for %s: %s", original_name, e.message);
                     failed++;
                 }
+            }
+
+            // Single batched update — see move_documents_sync.
+            if (renamed_docs.size > 0) {
+                library.update_documents (renamed_docs);
             }
 
             string msg;
