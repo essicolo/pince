@@ -360,10 +360,14 @@ template $PinceWindow: Adw.ApplicationWindow {
                   }
 
                   Adw.PreferencesGroup {
-                    title: "DOI Lookup";
+                    title: "Identifier Lookup";
 
                     Adw.EntryRow doi_entry {
                       title: "DOI";
+                    }
+
+                    Adw.EntryRow isbn_entry {
+                      title: "ISBN";
                     }
 
                     Gtk.Box {
@@ -395,7 +399,7 @@ template $PinceWindow: Adw.ApplicationWindow {
 
                       Gtk.Button fetch_metadata_button {
                         label: "Fetch Publication Info";
-                        tooltip-text: "If DOI is filled, fetch by DOI. Otherwise, search by title. Queries api.crossref.org (requires internet).";
+                        tooltip-text: "Fetches by ISBN (openlibrary.org), DOI (crossref/openalex), or title — whichever is filled.";
                         hexpand: true;
 
                         styles [

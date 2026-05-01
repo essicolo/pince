@@ -135,6 +135,9 @@ namespace Pince {
             if (fields.has_key ("doi")) {
                 doc.doi = clean_bibtex_value (fields["doi"]);
             }
+            if (fields.has_key ("isbn")) {
+                doc.isbn = clean_bibtex_value (fields["isbn"]);
+            }
             if (fields.has_key ("abstract")) {
                 doc.abstract_text = clean_bibtex_value (fields["abstract"]);
             }
@@ -306,6 +309,9 @@ namespace Pince {
             }
             if (doc.doi.length > 0) {
                 sb.append_printf ("  doi = {%s},\n", doc.doi);
+            }
+            if (doc.isbn.length > 0) {
+                sb.append_printf ("  isbn = {%s},\n", doc.isbn);
             }
             if (doc.journal.length > 0) {
                 sb.append_printf ("  journal = {%s},\n", doc.journal);
